@@ -224,6 +224,7 @@ function App() {
   const handleImageMouseDown = (e: React.MouseEvent, id: string) => {
     if (isColorPicking) return;
     e.stopPropagation();
+    e.preventDefault();
     const img = images.find(i => i.id === id);
     if (!img) return;
     setDraggingId(id);
@@ -242,6 +243,7 @@ function App() {
 
   const handleResizeMouseDown = (e: React.MouseEvent, id: string, corner: 'tl' | 'tr' | 'bl' | 'br') => {
     e.stopPropagation();
+    e.preventDefault();
     const img = images.find(i => i.id === id);
     if (!img) return;
     
@@ -271,6 +273,7 @@ function App() {
 
   const handleRotateMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    e.preventDefault();
     const img = images.find(i => i.id === id);
     if (!img) return;
     
@@ -554,6 +557,7 @@ function App() {
                   left: img.x,
                   top: img.y,
                   width: img.width,
+                  height: img.height,
                   transform: `rotate(${img.rotation}deg)`,
                   transformOrigin: 'center center',
                   zIndex: draggingId === img.id || resizingId === img.id || rotatingId === img.id ? 1000 : selectedImageId === img.id ? 500 : 1
@@ -562,12 +566,24 @@ function App() {
                 <img
                   src={img.src}
                   alt="Reference"
-                  className="w-full h-auto rounded-lg shadow-lg select-none pointer-events-none"
+                  className="w-full h-full rounded-lg shadow-lg select-none"
                   style={{
-                    filter: isColorPicking ? 'brightness(1.05)' : 'none'
+                    filter: isColorPicking ? 'brightness(1.05)' : 'none',
+                    cursor: isColorPicking ? 'crosshair' : 'move'
                   }}
-                  onMouseDown={(e) => handleImageMouseDown(e, img.id)}
-                  onClick={(e) => handleColorPickClick(e, img.id)}
+                  onMouseDown={(e) => {
+                    if (isColorPicking) {
+                      handleColorPickClick(e, img.id);
+                    } else {
+                      handleImageMouseDown(e, img.id);
+                    }
+                  }}
+                  onClick={(e) => {
+                    if (!isColorPicking) {
+                      e.stopPropagation();
+                      setSelectedImageId(img.id);
+                    }
+                  }}
                   draggable={false}
                 />
 
@@ -575,30 +591,35 @@ function App() {
                 {selectedImageId === img.id && !isColorPicking && (
                   <>
                     {/* Selection border */}
-                    <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" />
+                    <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" style={{ zIndex: 10 }} />
                     
                     {/* Rotation handle */}
                     <div
                       className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
+                      style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleRotateMouseDown(e, img.id)}
                     />
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-blue-400 pointer-events-none" />
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-blue-400 pointer-events-none" style={{ zIndex: 15 }} />
                     
                     {/* Resize handles */}
                     <div
                       className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                      style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tl')}
                     />
                     <div
                       className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                      style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tr')}
                     />
                     <div
                       className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                      style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'bl')}
                     />
                     <div
                       className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                      style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
                     />
                   </>
