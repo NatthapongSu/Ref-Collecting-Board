@@ -42,25 +42,30 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
       ctx.fill();
     }
 
-    // Draw square inside
+    // Draw square inside with proper HSL gradients
+    const squareRight = squareLeft + squareSize;
+    const squareBottom = squareTop + squareSize;
+    
     ctx.save();
     ctx.beginPath();
     ctx.rect(squareLeft, squareTop, squareSize, squareSize);
     ctx.clip();
 
-    // Base hue color
+    // Layer 1: Base hue color (fills entire square)
     ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
-    // White gradient (left to right for saturation)
-    const gradWhite = ctx.createLinearGradient(squareLeft, squareTop, squareLeft + squareSize, squareTop);
+    // Layer 2: White gradient for desaturation
+    // Goes from WHITE at left edge to TRANSPARENT at right edge
+    const gradWhite = ctx.createLinearGradient(squareLeft, squareTop, squareRight, squareTop);
     gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
     gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradWhite;
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
-    // Black gradient (top to bottom for lightness)
-    const gradBlack = ctx.createLinearGradient(squareLeft, squareTop, squareLeft, squareTop + squareSize);
+    // Layer 3: Black gradient for darkness
+    // Goes from TRANSPARENT at top edge to BLACK at bottom edge
+    const gradBlack = ctx.createLinearGradient(squareLeft, squareTop, squareLeft, squareBottom);
     gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
     gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
     ctx.fillStyle = gradBlack;
