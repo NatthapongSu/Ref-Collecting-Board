@@ -94,7 +94,7 @@ function App() {
   // UI state
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
   const initialPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
@@ -620,15 +620,23 @@ function App() {
     setDraggingId(id);
     draggingIdRef.current = id;
     
-    // Save initial mouse position and positions of all selected images
-    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+    // Save drag start position and initial positions of all selected images
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
     const positions = new Map<string, { x: number; y: number }>();
-    selectedImageIds.forEach(selectedId => {
-      const selectedImg = images.find(i => i.id === selectedId);
-      if (selectedImg) {
-        positions.set(selectedId, { x: selectedImg.x, y: selectedImg.y });
-      }
-    });
+    
+    // If clicking on a selected image, move all selected images
+    if (selectedImageIds.includes(id)) {
+      selectedImageIds.forEach(selectedId => {
+        const selectedImg = images.find(i => i.id === selectedId);
+        if (selectedImg) {
+          positions.set(selectedId, { x: selectedImg.x, y: selectedImg.y });
+        }
+      });
+    } else {
+      // Otherwise, just move the clicked image
+      positions.set(id, { x: img.x, y: img.y });
+    }
+    
     initialPositionsRef.current = positions;
     
     const rect = boardRef.current?.getBoundingClientRect();
@@ -766,20 +774,15 @@ function App() {
     } else if (currentDraggingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
-        // Calculate delta from last mouse position
-        const dx = (e.clientX - lastMousePosRef.current.x) / zoomRef.current;
-        const dy = (e.clientY - lastMousePosRef.current.y) / zoomRef.current;
-        lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+        // Calculate total delta from drag start
+        const totalDx = (e.clientX - dragStartPosRef.current.x) / zoomRef.current;
+        const totalDy = (e.clientY - dragStartPosRef.current.y) / zoomRef.current;
         
-        // Move all selected images by the delta
+        // Move all selected images to their initial position + total delta
         setImages(prev => prev.map(img => {
-          if (img.id === currentDraggingId) {
-            return { ...img, x: img.x + dx, y: img.y + dy };
-          }
-          // Check if this image is in the multi-selection
           const initialPos = initialPositionsRef.current.get(img.id);
           if (initialPos) {
-            return { ...img, x: initialPos.x + dx, y: initialPos.y + dy };
+            return { ...img, x: initialPos.x + totalDx, y: initialPos.y + totalDy };
           }
           return img;
         }));
@@ -1042,7 +1045,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.2</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.3</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
