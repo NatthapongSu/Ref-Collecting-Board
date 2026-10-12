@@ -10,16 +10,18 @@ interface ColorWheelProps {
 
 const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onChange, size = 220 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [dragging, setDragging] = useState<'wheel' | 'square' | null>(null);
+  const [dragging, setDragging] = useState<'wheel' | 'triangle' | null>(null);
   
   const center = size / 2;
   const outerRadius = size / 2 - 4;
   const innerRadius = outerRadius - 22;
   
-  // Square dimensions
-  const squareSize = (innerRadius - 8) * Math.sqrt(2) * 0.85;
-  const squareLeft = center - squareSize / 2;
-  const squareTop = center - squareSize / 2;
+  // Triangle dimensions - pointing right
+  const triRadius = (innerRadius - 8) * 0.9;
+  // Right point (pure hue), top-left (white), bottom-left (black)
+  const triRight = { x: center + triRadius, y: center };
+  const triTopLeft = { x: center - triRadius * 0.5, y: center - triRadius * 0.866 };
+  const triBottomLeft = { x: center - triRadius * 0.5, y: center + triRadius * 0.866 };
 
   // Draw the wheel whenever props change
   useEffect(() => {
@@ -42,35 +44,41 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
       ctx.fill();
     }
 
-    // Draw square inside
+    // Draw triangle inside
     ctx.save();
     ctx.beginPath();
-    ctx.rect(squareLeft, squareTop, squareSize, squareSize);
+    ctx.moveTo(triRight.x, triRight.y);
+    ctx.lineTo(triTopLeft.x, triTopLeft.y);
+    ctx.lineTo(triBottomLeft.x, triBottomLeft.y);
+    ctx.closePath();
     ctx.clip();
 
     // Base hue color
     ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
+    ctx.fillRect(0, 0, size, size);
 
-    // White gradient (left to right for saturation)
-    const gradWhite = ctx.createLinearGradient(squareLeft, 0, squareLeft + squareSize, 0);
-    gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
-    gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
+    // White gradient (from right to top-left)
+    const gradWhite = ctx.createLinearGradient(triRight.x, triRight.y, triTopLeft.x, triTopLeft.y);
+    gradWhite.addColorStop(0, 'rgba(255,255,255,0)');
+    gradWhite.addColorStop(1, 'rgba(255,255,255,1)');
     ctx.fillStyle = gradWhite;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
+    ctx.fillRect(0, 0, size, size);
 
-    // Black gradient (top to bottom for lightness)
-    const gradBlack = ctx.createLinearGradient(0, squareTop, 0, squareTop + squareSize);
+    // Black gradient (from right to bottom-left)
+    const gradBlack = ctx.createLinearGradient(triRight.x, triRight.y, triBottomLeft.x, triBottomLeft.y);
     gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
     gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
     ctx.fillStyle = gradBlack;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
+    ctx.fillRect(0, 0, size, size);
 
     ctx.restore();
 
-    // Draw square border
+    // Draw triangle border
     ctx.beginPath();
-    ctx.rect(squareLeft, squareTop, squareSize, squareSize);
+    ctx.moveTo(triRight.x, triRight.y);
+    ctx.lineTo(triTopLeft.x, triTopLeft.y);
+    ctx.lineTo(triBottomLeft.x, triBottomLeft.y);
+    ctx.closePath();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -89,8 +97,8 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
     ctx.fill();
 
-    // Draw SL indicator in square
-    const slPos = getSLPosition(squareLeft, squareTop, squareSize, saturation, lightness);
+    // Draw SL indicator in triangle
+    const slPos = getSLPosition(triRight, triTopLeft, triBottomLeft, saturation, lightness);
     ctx.beginPath();
     ctx.arc(slPos.x, slPos.y, 7, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
@@ -102,7 +110,7 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
     ctx.stroke();
-  }, [hue, saturation, lightness, size, center, outerRadius, innerRadius, squareLeft, squareTop, squareSize]);
+  }, [hue, saturation, lightness, size, center, outerRadius, innerRadius, triRight, triTopLeft, triBottomLeft]);
 
   const getMousePos = (e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -123,9 +131,8 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     if (dist >= innerRadius && dist <= outerRadius) {
       setDragging('wheel');
       updateHue(pos);
-    } else if (pos.x >= squareLeft && pos.x <= squareLeft + squareSize &&
-               pos.y >= squareTop && pos.y <= squareTop + squareSize) {
-      setDragging('square');
+    } else if (isPointInTriangle(pos, triRight, triTopLeft, triBottomLeft)) {
+      setDragging('triangle');
       updateSL(pos);
     }
   };
@@ -135,7 +142,7 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     const pos = getMousePos(e);
     if (dragging === 'wheel') {
       updateHue(pos);
-    } else if (dragging === 'square') {
+    } else if (dragging === 'triangle') {
       updateSL(pos);
     }
   };
@@ -153,10 +160,18 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   };
 
   const updateSL = (pos: { x: number; y: number }) => {
-    // Saturation: left (white) = 0, right (hue) = 100
-    const s = Math.max(0, Math.min(100, ((pos.x - squareLeft) / squareSize) * 100));
-    // Lightness: top (light) = 100, bottom (dark) = 0
-    const l = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
+    // Map position to saturation and lightness using bounding box
+    // Left = 0% saturation, Right = 100% saturation
+    // Top = 100% lightness, Bottom = 0% lightness
+    
+    const minX = triTopLeft.x;
+    const maxX = triRight.x;
+    const minY = triTopLeft.y;
+    const maxY = triBottomLeft.y;
+    
+    const s = Math.max(0, Math.min(100, ((pos.x - minX) / (maxX - minX)) * 100));
+    const l = Math.max(0, Math.min(100, (1 - (pos.y - minY) / (maxY - minY)) * 100));
+    
     onChange(hue, Math.round(s), Math.round(l));
   };
 
@@ -174,13 +189,35 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   );
 };
 
-function getSLPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, l: number) {
-  // Map saturation (0-100) and lightness (0-100) to square coordinates
-  // Saturation: 0 (white) at left, 100 (pure hue) at right
-  // Lightness: 100 (light) at top, 0 (black) at bottom
-  const x = squareLeft + (s / 100) * squareSize;
-  const y = squareTop + (1 - l / 100) * squareSize;
+function getSLPosition(triRight: {x: number, y: number}, triTopLeft: {x: number, y: number}, triBottomLeft: {x: number, y: number}, s: number, l: number) {
+  // Map saturation (0-100) and lightness (0-100) to bounding box coordinates
+  // Left = 0% saturation, Right = 100% saturation
+  // Top = 100% lightness, Bottom = 0% lightness
+  
+  const minX = triTopLeft.x;
+  const maxX = triRight.x;
+  const minY = triTopLeft.y;
+  const maxY = triBottomLeft.y;
+  
+  const x = minX + (s / 100) * (maxX - minX);
+  const y = minY + (1 - l / 100) * (maxY - minY);
+  
   return { x, y };
+}
+
+function isPointInTriangle(p: {x: number, y: number}, a: {x: number, y: number}, b: {x: number, y: number}, c: {x: number, y: number}) {
+  const d1 = sign(p, a, b);
+  const d2 = sign(p, b, c);
+  const d3 = sign(p, c, a);
+
+  const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+  const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+  return !(hasNeg && hasPos);
+}
+
+function sign(p1: {x: number, y: number}, p2: {x: number, y: number}, p3: {x: number, y: number}) {
+  return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
 
 export default ColorWheel;
