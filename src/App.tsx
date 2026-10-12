@@ -15,9 +15,27 @@ interface PickedColor {
   hex: string;
   rgb: { r: number; g: number; b: number };
   hsl: { h: number; s: number; l: number };
+  hsv: { h: number; s: number; v: number };
 }
 
 const STORAGE_KEY = 'art-board-data';
+
+// Color conversion functions
+function hslToHsv(h: number, s: number, l: number): { h: number; s: number; v: number } {
+  const sNorm = s / 100;
+  const lNorm = l / 100;
+  const v = lNorm + sNorm * Math.min(lNorm, 1 - lNorm);
+  const sHsv = v === 0 ? 0 : 2 * (1 - lNorm / v);
+  return { h, s: Math.round(sHsv * 100), v: Math.round(v * 100) };
+}
+
+function hsvToHsl(h: number, s: number, v: number): { h: number; s: number; l: number } {
+  const sNorm = s / 100;
+  const vNorm = v / 100;
+  const l = vNorm * (1 - sNorm / 2);
+  const sHsl = (l === 0 || l === 1) ? 0 : (vNorm - l) / Math.min(l, 1 - l);
+  return { h, s: Math.round(sHsl * 100), l: Math.round(l * 100) };
+}
 
 function App() {
   const [images, setImages] = useState<BoardImage[]>([]);
@@ -27,8 +45,10 @@ function App() {
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
     rgb: { r: 255, g: 0, b: 0 },
-    hsl: { h: 0, s: 100, l: 50 }
+    hsl: { h: 0, s: 100, l: 50 },
+    hsv: { h: 0, s: 100, v: 100 }
   });
+  const [colorMode, setColorMode] = useState<'hsl' | 'hsv'>('hsl');
   const [hsl, setHsl] = useState({ h: 0, s: 100, l: 50 });
   const [isColorPicking, setIsColorPicking] = useState(false);
   const [copiedText, setCopiedText] = useState('');
@@ -437,8 +457,9 @@ function App() {
     const r = pixel[0], g = pixel[1], b = pixel[2];
     const hex = rgbToHex(r, g, b);
     const hslVal = rgbToHsl(r, g, b);
+    const hsvVal = hslToHsv(hslVal.h, hslVal.s, hslVal.l);
 
-    const color: PickedColor = { hex, rgb: { r, g, b }, hsl: hslVal };
+    const color: PickedColor = { hex, rgb: { r, g, b }, hsl: hslVal, hsv: hsvVal };
     setCurrentColor(color);
     setHsl(hslVal);
     setIsColorPicking(false);
@@ -487,7 +508,8 @@ function App() {
     setHsl({ h, s, l });
     const rgb = hslToRgb(h, s, l);
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-    setCurrentColor({ hex, rgb, hsl: { h, s, l } });
+    const hsv = hslToHsv(h, s, l);
+    setCurrentColor({ hex, rgb, hsl: { h, s, l }, hsv });
   }, []);
 
   const clearBoard = () => {
@@ -693,9 +715,17 @@ function App() {
           <div className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-sm">
             {/* Color Wheel Section */}
             <div className="p-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <span>🔮</span> Color Wheel
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span>🔮</span> Color Wheel
+                </h3>
+                <button
+                  onClick={() => setColorMode(colorMode === 'hsl' ? 'hsv' : 'hsl')}
+                  className="px-2 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                >
+                  {colorMode === 'hsl' ? 'HSL' : 'HSV'}
+                </button>
+              </div>
               <div className="flex justify-center">
                 <ColorWheel
                   hue={hsl.h}
@@ -706,10 +736,10 @@ function App() {
                 />
               </div>
               
-              {/* HSL Sliders */}
+              {/* HSL/HSV Sliders */}
               <div className="mt-4 space-y-3">
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Hue</label>
+                  <label className="text-xs text-gray-600 mb-1 block">Hue ({hsl.h}°)</label>
                   <input
                     type="range"
                     min="0"
@@ -731,13 +761,23 @@ function App() {
                 </div>
                 
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Saturation</label>
+                  <label className="text-xs text-gray-600 mb-1 block">
+                    {colorMode === 'hsl' ? `Saturation (${hsl.s}%)` : `Saturation (${currentColor.hsv.s}%)`}
+                  </label>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={hsl.s}
-                    onChange={(e) => handleColorWheelChange(hsl.h, Number(e.target.value), hsl.l)}
+                    value={colorMode === 'hsl' ? hsl.s : currentColor.hsv.s}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (colorMode === 'hsl') {
+                        handleColorWheelChange(hsl.h, val, hsl.l);
+                      } else {
+                        const newHsl = hsvToHsl(hsl.h, val, currentColor.hsv.v);
+                        handleColorWheelChange(newHsl.h, newHsl.s, newHsl.l);
+                      }
+                    }}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
@@ -748,13 +788,23 @@ function App() {
                 </div>
                 
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Lightness</label>
+                  <label className="text-xs text-gray-600 mb-1 block">
+                    {colorMode === 'hsl' ? `Lightness (${hsl.l}%)` : `Value (${currentColor.hsv.v}%)`}
+                  </label>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={hsl.l}
-                    onChange={(e) => handleColorWheelChange(hsl.h, hsl.s, Number(e.target.value))}
+                    value={colorMode === 'hsl' ? hsl.l : currentColor.hsv.v}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (colorMode === 'hsl') {
+                        handleColorWheelChange(hsl.h, hsl.s, val);
+                      } else {
+                        const newHsl = hsvToHsl(hsl.h, currentColor.hsv.s, val);
+                        handleColorWheelChange(newHsl.h, newHsl.s, newHsl.l);
+                      }
+                    }}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
@@ -797,12 +847,21 @@ function App() {
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">HSL</span>
+                    <span className="text-xs text-gray-500">{colorMode === 'hsl' ? 'HSL' : 'HSV'}</span>
                     <button
-                      onClick={() => copyToClipboard(`hsl(${currentColor.hsl.h}, ${currentColor.hsl.s}%, ${currentColor.hsl.l}%)`, 'HSL')}
+                      onClick={() => {
+                        if (colorMode === 'hsl') {
+                          copyToClipboard(`hsl(${currentColor.hsl.h}, ${currentColor.hsl.s}%, ${currentColor.hsl.l}%)`, 'HSL');
+                        } else {
+                          copyToClipboard(`hsv(${currentColor.hsv.h}, ${currentColor.hsv.s}%, ${currentColor.hsv.v}%)`, 'HSV');
+                        }
+                      }}
                       className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200 transition-colors"
                     >
-                      {currentColor.hsl.h}°, {currentColor.hsl.s}%, {currentColor.hsl.l}%
+                      {colorMode === 'hsl' 
+                        ? `${currentColor.hsl.h}°, ${currentColor.hsl.s}%, ${currentColor.hsl.l}%`
+                        : `${currentColor.hsv.h}°, ${currentColor.hsv.s}%, ${currentColor.hsv.v}%`
+                      }
                     </button>
                   </div>
                 </div>
