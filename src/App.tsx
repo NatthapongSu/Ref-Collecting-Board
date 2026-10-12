@@ -160,6 +160,7 @@ function App() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const initialPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const potentialDragIdRef = useRef<string | null>(null);
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
     rgb: { r: 255, g: 0, b: 0 },
@@ -499,6 +500,16 @@ function App() {
     return () => document.removeEventListener('paste', handlePaste);
   }, []);
 
+  // Global mouseup listener to ensure drag state is always cleared
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
   // Touch support for mobile
   useEffect(() => {
     const board = boardRef.current;
@@ -738,11 +749,11 @@ function App() {
       }
     }
     
-    setDraggingId(id);
-    draggingIdRef.current = id;
-    
+    // Don't set draggingId yet - wait for mousemove to determine if it's a drag
     // Save drag start position and initial positions of all selected images
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    potentialDragIdRef.current = id;
+    
     const positions = new Map<string, { x: number; y: number }>();
     
     // If clicking on a selected image, move all selected images
@@ -851,6 +862,7 @@ function App() {
 
   const animationFrameRef = useRef<number | null>(null);
   const pendingMousePosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastProcessedPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const currentDraggingId = draggingIdRef.current;
@@ -858,14 +870,6 @@ function App() {
     const currentResizingId = resizingIdRef.current;
     const currentRotatingId = rotatingIdRef.current;
     const currentIsSelecting = isSelectingRef.current;
-
-    // Throttle: Only process if we have significant movement
-    const lastPos = pendingMousePosRef.current;
-    if (lastPos) {
-      const dx = Math.abs(e.clientX - lastPos.x);
-      const dy = Math.abs(e.clientY - lastPos.y);
-      if (dx < 2 && dy < 2) return; // Skip tiny movements
-    }
 
     // Store mouse position for animation frame
     pendingMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -879,6 +883,28 @@ function App() {
     animationFrameRef.current = requestAnimationFrame(() => {
       if (!pendingMousePosRef.current) return;
       const { x: clientX, y: clientY } = pendingMousePosRef.current;
+      
+      // Throttle: Only process if we have significant movement
+      const lastPos = lastProcessedPosRef.current;
+      if (lastPos) {
+        const dx = Math.abs(clientX - lastPos.x);
+        const dy = Math.abs(clientY - lastPos.y);
+        if (dx < 2 && dy < 2) return; // Skip tiny movements
+      }
+      
+      // Update last processed position
+      lastProcessedPosRef.current = { x: clientX, y: clientY };
+
+    // Check if we should start dragging (threshold: 5 pixels)
+    if (potentialDragIdRef.current && !currentDraggingId) {
+      const startDx = Math.abs(clientX - dragStartPosRef.current.x);
+      const startDy = Math.abs(clientY - dragStartPosRef.current.y);
+      if (startDx > 5 || startDy > 5) {
+        setDraggingId(potentialDragIdRef.current);
+        draggingIdRef.current = potentialDragIdRef.current;
+        potentialDragIdRef.current = null;
+      }
+    }
 
     if (currentIsSelecting) {
       const rect = boardRef.current?.getBoundingClientRect();
@@ -1030,6 +1056,8 @@ function App() {
       animationFrameRef.current = null;
     }
     pendingMousePosRef.current = null;
+    lastProcessedPosRef.current = null;
+    potentialDragIdRef.current = null;
 
     // Finalize selection box if selecting
     if (isSelectingRef.current && selectionBoxRef.current) {
@@ -1243,6 +1271,40 @@ function App() {
     }
   };
 
+  const clearAllData = async () => {
+    if (confirm('This will delete ALL data including canvases, colors, and settings. Continue?')) {
+      try {
+        // Clear all canvases and reset to default
+        const defaultCanvas: Canvas = {
+          id: Date.now().toString(),
+          name: 'Canvas 1',
+          images: [],
+          pickedColors: [],
+          boardOffset: { x: 0, y: 0 },
+          zoom: 1
+        };
+        setCanvases([defaultCanvas]);
+        setActiveCanvasId(defaultCanvas.id);
+        activeCanvasIdRef.current = defaultCanvas.id;
+        
+        // Force save to IndexedDB
+        await saveData(STORAGE_KEY, {
+          canvases: [defaultCanvas],
+          activeCanvasId: defaultCanvas.id
+        });
+        
+        // Update storage info
+        const estimate = await getStorageEstimate();
+        setStorageInfo(estimate);
+        
+        alert('All data cleared successfully!');
+      } catch (e) {
+        console.error('Failed to clear data:', e);
+        alert('Failed to clear data. Please try again.');
+      }
+    }
+  };
+
   const clearColors = () => {
     setPickedColors([]);
   };
@@ -1281,7 +1343,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.3</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.9</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1350,6 +1412,7 @@ function App() {
           <button
             onClick={clearBoard}
             className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center gap-1.5"
+            title="Clear all images from current canvas"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18"></path>
@@ -1357,6 +1420,19 @@ function App() {
               <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
             </svg>
             <span className="hidden sm:inline">Clear</span>
+          </button>
+          
+          <button
+            onClick={clearAllData}
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-all flex items-center gap-1.5"
+            title="Delete ALL data (canvases, colors, settings)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            <span className="hidden sm:inline">Reset All</span>
           </button>
         </div>
 
@@ -1521,6 +1597,24 @@ function App() {
                     }}
                     onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'br')}
                   />
+                  
+                  {/* Delete button for group */}
+                  <button
+                    onClick={() => {
+                      const idsToDelete = [...selectedImageIds];
+                      setImages(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+                      setSelectedImageIds([]);
+                      setSelectedImageId(null);
+                    }}
+                    className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-white border-2 border-red-500 hover:bg-red-50 transition-colors pointer-events-auto"
+                    style={{ zIndex: 20 }}
+                    title="Delete all selected images"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
                 </div>
               );
             })()}
@@ -1556,6 +1650,9 @@ function App() {
                     } else {
                       handleImageMouseDown(e, img.id);
                     }
+                  }}
+                  onMouseUp={() => {
+                    handleMouseUp();
                   }}
                   onClick={(e) => {
                     if (!isColorPicking && !isPanningMode) {
