@@ -851,6 +851,7 @@ function App() {
 
   const animationFrameRef = useRef<number | null>(null);
   const pendingMousePosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastProcessedPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const currentDraggingId = draggingIdRef.current;
@@ -858,14 +859,6 @@ function App() {
     const currentResizingId = resizingIdRef.current;
     const currentRotatingId = rotatingIdRef.current;
     const currentIsSelecting = isSelectingRef.current;
-
-    // Throttle: Only process if we have significant movement
-    const lastPos = pendingMousePosRef.current;
-    if (lastPos) {
-      const dx = Math.abs(e.clientX - lastPos.x);
-      const dy = Math.abs(e.clientY - lastPos.y);
-      if (dx < 2 && dy < 2) return; // Skip tiny movements
-    }
 
     // Store mouse position for animation frame
     pendingMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -879,6 +872,17 @@ function App() {
     animationFrameRef.current = requestAnimationFrame(() => {
       if (!pendingMousePosRef.current) return;
       const { x: clientX, y: clientY } = pendingMousePosRef.current;
+      
+      // Throttle: Only process if we have significant movement
+      const lastPos = lastProcessedPosRef.current;
+      if (lastPos) {
+        const dx = Math.abs(clientX - lastPos.x);
+        const dy = Math.abs(clientY - lastPos.y);
+        if (dx < 2 && dy < 2) return; // Skip tiny movements
+      }
+      
+      // Update last processed position
+      lastProcessedPosRef.current = { x: clientX, y: clientY };
 
     if (currentIsSelecting) {
       const rect = boardRef.current?.getBoundingClientRect();
@@ -1030,6 +1034,7 @@ function App() {
       animationFrameRef.current = null;
     }
     pendingMousePosRef.current = null;
+    lastProcessedPosRef.current = null;
 
     // Finalize selection box if selecting
     if (isSelectingRef.current && selectionBoxRef.current) {
@@ -1315,7 +1320,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.6</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.7</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
