@@ -451,9 +451,36 @@ function App() {
   };
 
   const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(label);
-    setTimeout(() => setCopiedText(''), 1500);
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedText(label);
+        setTimeout(() => setCopiedText(''), 1500);
+      }).catch(() => {
+        // Fallback to execCommand
+        fallbackCopy(text, label);
+      });
+    } else {
+      // Fallback for older browsers or restricted contexts
+      fallbackCopy(text, label);
+    }
+  };
+
+  const fallbackCopy = (text: string, label: string) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(''), 1500);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+    document.body.removeChild(textarea);
   };
 
   const handleColorWheelChange = useCallback((h: number, s: number, l: number) => {
