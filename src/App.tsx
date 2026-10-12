@@ -759,29 +759,46 @@ function App() {
           const bounds = groupBoundsRef.current;
           const corner = resizeCornerRef.current;
           
-          // Calculate new bounding box dimensions
-          let newMinX = bounds.minX;
-          let newMinY = bounds.minY;
-          let newMaxX = bounds.maxX;
-          let newMaxY = bounds.maxY;
+          // Calculate uniform scale factor (maintain aspect ratio like single image)
+          const originalWidth = bounds.maxX - bounds.minX;
+          const originalHeight = bounds.maxY - bounds.minY;
           
+          let scale = 1;
           if (corner === 'br') {
-            newMaxX = Math.max(bounds.minX + 50, bounds.maxX + dx);
-            newMaxY = Math.max(bounds.minY + 50, bounds.maxY + dy);
+            scale = Math.max(0.1, (originalWidth + dx) / originalWidth);
           } else if (corner === 'bl') {
-            newMinX = Math.min(bounds.maxX - 50, bounds.minX + dx);
-            newMaxY = Math.max(bounds.minY + 50, bounds.maxY + dy);
+            scale = Math.max(0.1, (originalWidth - dx) / originalWidth);
           } else if (corner === 'tr') {
-            newMaxX = Math.max(bounds.minX + 50, bounds.maxX + dx);
-            newMinY = Math.min(bounds.maxY - 50, bounds.minY + dy);
+            scale = Math.max(0.1, (originalWidth + dx) / originalWidth);
           } else if (corner === 'tl') {
-            newMinX = Math.min(bounds.maxX - 50, bounds.minX + dx);
-            newMinY = Math.min(bounds.maxY - 50, bounds.minY + dy);
+            scale = Math.max(0.1, (originalWidth - dx) / originalWidth);
           }
           
-          // Calculate scale factors
-          const scaleX = (newMaxX - newMinX) / (bounds.maxX - bounds.minX);
-          const scaleY = (newMaxY - newMinY) / (bounds.maxY - bounds.minY);
+          // Calculate new dimensions
+          const newWidth = originalWidth * scale;
+          const newHeight = originalHeight * scale;
+          
+          // Calculate new position based on corner
+          let newMinX = bounds.minX;
+          let newMinY = bounds.minY;
+          
+          if (corner === 'br') {
+            // Bottom-right: top-left stays fixed
+            newMinX = bounds.minX;
+            newMinY = bounds.minY;
+          } else if (corner === 'bl') {
+            // Bottom-left: top-right stays fixed
+            newMinX = bounds.maxX - newWidth;
+            newMinY = bounds.minY;
+          } else if (corner === 'tr') {
+            // Top-right: bottom-left stays fixed
+            newMinX = bounds.minX;
+            newMinY = bounds.maxY - newHeight;
+          } else if (corner === 'tl') {
+            // Top-left: bottom-right stays fixed
+            newMinX = bounds.maxX - newWidth;
+            newMinY = bounds.maxY - newHeight;
+          }
           
           // Update all selected images proportionally
           setImages(prev => prev.map(img => {
@@ -789,18 +806,18 @@ function App() {
             if (!initialPos) return img;
             
             // Calculate relative position within bounding box
-            const relX = (initialPos.x - bounds.minX) / (bounds.maxX - bounds.minX);
-            const relY = (initialPos.y - bounds.minY) / (bounds.maxY - bounds.minY);
-            const relWidth = initialPos.width / (bounds.maxX - bounds.minX);
-            const relHeight = initialPos.height / (bounds.maxY - bounds.minY);
+            const relX = (initialPos.x - bounds.minX) / originalWidth;
+            const relY = (initialPos.y - bounds.minY) / originalHeight;
+            const relWidth = initialPos.width / originalWidth;
+            const relHeight = initialPos.height / originalHeight;
             
-            // Apply new position and size
-            const newX = newMinX + relX * (newMaxX - newMinX);
-            const newY = newMinY + relY * (newMaxY - newMinY);
-            const newWidth = relWidth * (newMaxX - newMinX);
-            const newHeight = relHeight * (newMaxY - newMinY);
+            // Apply new position and size with uniform scale
+            const newX = newMinX + relX * newWidth;
+            const newY = newMinY + relY * newHeight;
+            const newImgWidth = relWidth * newWidth;
+            const newImgHeight = relHeight * newHeight;
             
-            return { ...img, x: newX, y: newY, width: newWidth, height: newHeight };
+            return { ...img, x: newX, y: newY, width: newImgWidth, height: newImgHeight };
           }));
         } else {
           // Single image resize
@@ -1127,7 +1144,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.2</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.3</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
