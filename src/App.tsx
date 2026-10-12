@@ -40,6 +40,12 @@ function App() {
   const [showColorPanel, setShowColorPanel] = useState(true);
 
   const boardRef = useRef<HTMLDivElement>(null);
+  const boardOffsetRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const draggingIdRef = useRef<string | null>(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
 
   // Load from localStorage
   useEffect(() => {
@@ -49,27 +55,37 @@ function App() {
         const data = JSON.parse(saved);
         if (data.images) setImages(data.images);
         if (data.pickedColors) setPickedColors(data.pickedColors);
-        if (data.boardOffset) setBoardOffset(data.boardOffset);
-        if (data.zoom) setZoom(data.zoom);
+        if (data.boardOffset) {
+          setBoardOffset(data.boardOffset);
+          boardOffsetRef.current = data.boardOffset;
+        }
+        if (data.zoom) {
+          setZoom(data.zoom);
+          zoomRef.current = data.zoom;
+        }
       }
     } catch (e) {
       console.error('Failed to load saved data:', e);
     }
   }, []);
 
-  // Auto-save to localStorage
+  // Auto-save to localStorage (debounced)
   useEffect(() => {
-    const saveData = {
-      images,
-      pickedColors,
-      boardOffset,
-      zoom
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
-    } catch (e) {
-      console.error('Failed to save data:', e);
-    }
+    const timeoutId = setTimeout(() => {
+      const saveData = {
+        images,
+        pickedColors,
+        boardOffset,
+        zoom
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      } catch (e) {
+        console.error('Failed to save data:', e);
+      }
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
   }, [images, pickedColors, boardOffset, zoom]);
 
   // Handle paste
@@ -112,8 +128,8 @@ function App() {
           reader.onload = (ev) => {
             const src = ev.target?.result as string;
             const rect = boardRef.current?.getBoundingClientRect();
-            const x = ((e.clientX - (rect?.left || 0)) - boardOffset.x) / zoom;
-            const y = ((e.clientY - (rect?.top || 0)) - boardOffset.y) / zoom;
+            const x = ((e.clientX - (rect?.left || 0)) - boardOffsetRef.current.x) / zoomRef.current;
+            const y = ((e.clientY - (rect?.top || 0)) - boardOffsetRef.current.y) / zoomRef.current;
             addImage(src, x, y);
           };
           reader.readAsDataURL(files[i]);
@@ -131,7 +147,7 @@ function App() {
       document.removeEventListener('drop', handleDrop);
       document.removeEventListener('dragover', handleDragOver);
     };
-  }, [boardOffset, zoom]);
+  }, []);
 
   // Handle wheel zoom
   useEffect(() => {
@@ -142,7 +158,11 @@ function App() {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(prev => Math.min(3, Math.max(0.2, prev * delta)));
+        setZoom(prev => {
+          const newZoom = Math.min(3, Math.max(0.2, prev * delta));
+          zoomRef.current = newZoom;
+          return newZoom;
+        });
       }
     };
 
@@ -181,48 +201,62 @@ function App() {
     const img = images.find(i => i.id === id);
     if (!img) return;
     setDraggingId(id);
+    draggingIdRef.current = id;
     setSelectedImageId(id);
     const rect = boardRef.current?.getBoundingClientRect();
     if (rect) {
-      setDragOffset({
-        x: (e.clientX - rect.left - boardOffset.x) / zoom - img.x,
-        y: (e.clientY - rect.top - boardOffset.y) / zoom - img.y
-      });
+      const offset = {
+        x: (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current - img.x,
+        y: (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current - img.y
+      };
+      setDragOffset(offset);
+      dragOffsetRef.current = offset;
     }
   };
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (draggingId) {
+    const currentDraggingId = draggingIdRef.current;
+    const currentIsPanning = isPanningRef.current;
+
+    if (currentDraggingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
-        const x = (e.clientX - rect.left - boardOffset.x) / zoom - dragOffset.x;
-        const y = (e.clientY - rect.top - boardOffset.y) / zoom - dragOffset.y;
+        const x = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current - dragOffsetRef.current.x;
+        const y = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current - dragOffsetRef.current.y;
         setImages(prev => prev.map(img =>
-          img.id === draggingId ? { ...img, x, y } : img
+          img.id === currentDraggingId ? { ...img, x, y } : img
         ));
       }
-    } else if (isPanning) {
-      const dx = e.clientX - panStart.x;
-      const dy = e.clientY - panStart.y;
-      setBoardOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    } else if (currentIsPanning) {
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      const newOffset = { x: boardOffsetRef.current.x + dx, y: boardOffsetRef.current.y + dy };
+      boardOffsetRef.current = newOffset;
+      setBoardOffset(newOffset);
+      panStartRef.current = { x: e.clientX, y: e.clientY };
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [draggingId, dragOffset, isPanning, panStart, boardOffset, zoom]);
+  }, []);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setDraggingId(null);
+    draggingIdRef.current = null;
     setIsPanning(false);
-  };
+    isPanningRef.current = false;
+  }, []);
 
-  const handleBoardMouseDown = (e: React.MouseEvent) => {
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.target === boardRef.current || (e.target as HTMLElement).classList.contains('board-bg')) {
       setSelectedImageId(null);
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
         setIsPanning(true);
-        setPanStart({ x: e.clientX, y: e.clientY });
+        isPanningRef.current = true;
+        const start = { x: e.clientX, y: e.clientY };
+        setPanStart(start);
+        panStartRef.current = start;
       }
     }
-  };
+  }, []);
 
   const deleteImage = (id: string) => {
     setImages(prev => prev.filter(img => img.id !== id));
@@ -289,12 +323,12 @@ function App() {
     setTimeout(() => setCopiedText(''), 1500);
   };
 
-  const handleColorWheelChange = (h: number, s: number, l: number) => {
+  const handleColorWheelChange = useCallback((h: number, s: number, l: number) => {
     setHsl({ h, s, l });
     const rgb = hslToRgb(h, s, l);
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
     setCurrentColor({ hex, rgb, hsl: { h, s, l } });
-  };
+  }, []);
 
   const clearBoard = () => {
     if (confirm('Clear all images from the board?')) {

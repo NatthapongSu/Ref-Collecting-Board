@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface ColorWheelProps {
   hue: number;
@@ -11,11 +11,13 @@ interface ColorWheelProps {
 const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onChange, size = 220 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<'wheel' | 'triangle' | null>(null);
+  
   const center = size / 2;
   const outerRadius = size / 2 - 4;
   const innerRadius = outerRadius - 22;
 
-  const drawWheel = useCallback(() => {
+  // Draw the wheel whenever props change
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -48,7 +50,7 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.closePath();
     ctx.clip();
 
-    // Create gradient for saturation (from center to edges)
+    // Base hue color
     const gradWhite = ctx.createLinearGradient(
       triPoints[1].x, triPoints[1].y,
       triPoints[0].x, triPoints[0].y
@@ -105,17 +107,12 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.fill();
     ctx.beginPath();
     ctx.arc(slPos.x, slPos.y, 5, 0, Math.PI * 2);
-    const currentColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-    ctx.fillStyle = currentColor;
+    ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     ctx.fill();
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
     ctx.stroke();
   }, [hue, saturation, lightness, size, center, outerRadius, innerRadius]);
-
-  useEffect(() => {
-    drawWheel();
-  }, [drawWheel]);
 
   const getMousePos = (e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -188,7 +185,6 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
 };
 
 function getTrianglePoints(cx: number, cy: number, radius: number, hue: number) {
-  // Triangle points at hue angle, hue+120, hue+240
   const angle = hue * Math.PI / 180;
   return [
     { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius },
@@ -199,12 +195,9 @@ function getTrianglePoints(cx: number, cy: number, radius: number, hue: number) 
 
 function getSLPosition(cx: number, triRadius: number, hue: number, s: number, l: number) {
   const triPoints = getTrianglePoints(cx, cx, triRadius, hue);
-  // Map S/L to triangle position
-  // Top point = pure hue, bottom-left = white, bottom-right = black
   const sat = s / 100;
   const lit = l / 100;
 
-  // Interpolate between the three corners
   const x = triPoints[0].x * (1 - lit) * sat + triPoints[1].x * (1 - sat) * (1 - lit) + triPoints[2].x * lit;
   const y = triPoints[0].y * (1 - lit) * sat + triPoints[1].y * (1 - sat) * (1 - lit) + triPoints[2].y * lit;
 
@@ -212,7 +205,6 @@ function getSLPosition(cx: number, triRadius: number, hue: number, s: number, l:
 }
 
 function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y: number }[]) {
-  // Convert position back to S/L using barycentric coordinates
   const [p0, p1, p2] = triPoints;
 
   const v0x = p1.x - p0.x;
@@ -230,7 +222,6 @@ function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y:
 
   const denom = dot00 * dot11 - dot01 * dot01;
   if (Math.abs(denom) < 1e-10) {
-    // Degenerate triangle, return center values
     return { s: 50, l: 50 };
   }
 
@@ -239,11 +230,9 @@ function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y:
   let v = (dot00 * dot12 - dot01 * dot02) * inv;
 
   // Clamp barycentric coordinates directly (no recursion)
-  // u = weight for p1 (white), v = weight for p2 (black), w = 1-u-v = weight for p0 (pure hue)
   u = Math.max(0, Math.min(1, u));
   v = Math.max(0, Math.min(1, v));
 
-  // Ensure u + v <= 1 (if not, scale them down proportionally)
   if (u + v > 1) {
     const scale = 1 / (u + v);
     u *= scale;
@@ -256,7 +245,5 @@ function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y:
 
   return { s: sat, l: lit };
 }
-
-
 
 export default ColorWheel;
