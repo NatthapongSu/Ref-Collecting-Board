@@ -595,19 +595,13 @@ function App() {
     if (!board) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(prev => {
-          const newZoom = Math.min(3, Math.max(0.2, prev * delta));
-          zoomRef.current = newZoom;
-          return newZoom;
-        });
-      } else if (selectedImageId) {
-        e.preventDefault();
+      e.preventDefault();
+      
+      if (selectedImageId || selectedImageIds.length > 0) {
+        // Scale selected image(s) when something is selected
         const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
         setImages(prev => prev.map(img => {
-          if (img.id === selectedImageId) {
+          if (selectedImageIds.includes(img.id)) {
             const ratio = img.height / img.width;
             const newWidth = Math.max(50, Math.min(2000, img.width * scaleFactor));
             const newHeight = newWidth * ratio;
@@ -617,12 +611,20 @@ function App() {
           }
           return img;
         }));
+      } else {
+        // Zoom canvas when nothing is selected
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(prev => {
+          const newZoom = Math.min(3, Math.max(0.2, prev * delta));
+          zoomRef.current = newZoom;
+          return newZoom;
+        });
       }
     };
 
     board.addEventListener('wheel', handleWheel, { passive: false });
     return () => board.removeEventListener('wheel', handleWheel);
-  }, [selectedImageId]);
+  }, [selectedImageId, selectedImageIds]);
 
   // Compress image to save storage
   const compressImage = (src: string, maxWidth = 800, quality = 0.8): Promise<string> => {
@@ -1261,7 +1263,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.1</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.2</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1367,7 +1369,7 @@ function App() {
         )}
 
         <div className="text-xs text-gray-400 hidden lg:block">
-          Drag to select multiple • Ctrl+Click to add • Drag selected to move • Alt+Drag to pan
+          Drag to select • Scroll to zoom canvas • Scroll selected to scale • Alt+Drag to pan
         </div>
       </div>
 
