@@ -121,6 +121,9 @@ function App() {
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, imgX: 0, imgY: 0 });
+  const [isGroupResize, setIsGroupResize] = useState(false);
+  const groupBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+  const initialGroupPositionsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [rotateStart, setRotateStart] = useState({ angle: 0, centerX: 0, centerY: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -653,6 +656,29 @@ function App() {
   const handleResizeMouseDown = (e: React.MouseEvent, id: string, corner: 'tl' | 'tr' | 'bl' | 'br') => {
     e.stopPropagation();
     e.preventDefault();
+    
+    // Check if this is a group resize (multiple images selected)
+    const isGroup = selectedImageIds.length > 1;
+    setIsGroupResize(isGroup);
+    
+    if (isGroup) {
+      // Calculate bounding box of all selected images
+      const selectedImages = images.filter(img => selectedImageIds.includes(img.id));
+      const minX = Math.min(...selectedImages.map(img => img.x));
+      const minY = Math.min(...selectedImages.map(img => img.y));
+      const maxX = Math.max(...selectedImages.map(img => img.x + img.width));
+      const maxY = Math.max(...selectedImages.map(img => img.y + img.height));
+      
+      groupBoundsRef.current = { minX, minY, maxX, maxY };
+      
+      // Store initial positions and sizes of all selected images
+      const positions = new Map<string, { x: number; y: number; width: number; height: number }>();
+      selectedImages.forEach(img => {
+        positions.set(img.id, { x: img.x, y: img.y, width: img.width, height: img.height });
+      });
+      initialGroupPositionsRef.current = positions;
+    }
+    
     const img = images.find(i => i.id === id);
     if (!img) return;
     
@@ -676,7 +702,6 @@ function App() {
       resizeCornerRef.current = corner;
       setResizeStart(startData);
       resizeStartRef.current = startData;
-      setSelectedImageId(id);
     }
   };
 
@@ -727,35 +752,86 @@ function App() {
         const dx = mouseX - resizeStartRef.current.x;
         const dy = mouseY - resizeStartRef.current.y;
         
-        let newWidth = resizeStartRef.current.width;
-        let newHeight = resizeStartRef.current.height;
-        let newX = resizeStartRef.current.imgX;
-        let newY = resizeStartRef.current.imgY;
-        
-        const aspectRatio = resizeStartRef.current.height / resizeStartRef.current.width;
-        const corner = resizeCornerRef.current;
-        
-        if (corner === 'br') {
-          newWidth = Math.max(50, resizeStartRef.current.width + dx);
-          newHeight = newWidth * aspectRatio;
-        } else if (corner === 'bl') {
-          newWidth = Math.max(50, resizeStartRef.current.width - dx);
-          newHeight = newWidth * aspectRatio;
-          newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
-        } else if (corner === 'tr') {
-          newWidth = Math.max(50, resizeStartRef.current.width + dx);
-          newHeight = newWidth * aspectRatio;
-          newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
-        } else if (corner === 'tl') {
-          newWidth = Math.max(50, resizeStartRef.current.width - dx);
-          newHeight = newWidth * aspectRatio;
-          newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
-          newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
+        // Check if this is a group resize
+        if (isGroupResize && groupBoundsRef.current) {
+          const bounds = groupBoundsRef.current;
+          const corner = resizeCornerRef.current;
+          
+          // Calculate new bounding box dimensions
+          let newMinX = bounds.minX;
+          let newMinY = bounds.minY;
+          let newMaxX = bounds.maxX;
+          let newMaxY = bounds.maxY;
+          
+          if (corner === 'br') {
+            newMaxX = Math.max(bounds.minX + 50, bounds.maxX + dx);
+            newMaxY = Math.max(bounds.minY + 50, bounds.maxY + dy);
+          } else if (corner === 'bl') {
+            newMinX = Math.min(bounds.maxX - 50, bounds.minX + dx);
+            newMaxY = Math.max(bounds.minY + 50, bounds.maxY + dy);
+          } else if (corner === 'tr') {
+            newMaxX = Math.max(bounds.minX + 50, bounds.maxX + dx);
+            newMinY = Math.min(bounds.maxY - 50, bounds.minY + dy);
+          } else if (corner === 'tl') {
+            newMinX = Math.min(bounds.maxX - 50, bounds.minX + dx);
+            newMinY = Math.min(bounds.maxY - 50, bounds.minY + dy);
+          }
+          
+          // Calculate scale factors
+          const scaleX = (newMaxX - newMinX) / (bounds.maxX - bounds.minX);
+          const scaleY = (newMaxY - newMinY) / (bounds.maxY - bounds.minY);
+          
+          // Update all selected images proportionally
+          setImages(prev => prev.map(img => {
+            const initialPos = initialGroupPositionsRef.current.get(img.id);
+            if (!initialPos) return img;
+            
+            // Calculate relative position within bounding box
+            const relX = (initialPos.x - bounds.minX) / (bounds.maxX - bounds.minX);
+            const relY = (initialPos.y - bounds.minY) / (bounds.maxY - bounds.minY);
+            const relWidth = initialPos.width / (bounds.maxX - bounds.minX);
+            const relHeight = initialPos.height / (bounds.maxY - bounds.minY);
+            
+            // Apply new position and size
+            const newX = newMinX + relX * (newMaxX - newMinX);
+            const newY = newMinY + relY * (newMaxY - newMinY);
+            const newWidth = relWidth * (newMaxX - newMinX);
+            const newHeight = relHeight * (newMaxY - newMinY);
+            
+            return { ...img, x: newX, y: newY, width: newWidth, height: newHeight };
+          }));
+        } else {
+          // Single image resize
+          let newWidth = resizeStartRef.current.width;
+          let newHeight = resizeStartRef.current.height;
+          let newX = resizeStartRef.current.imgX;
+          let newY = resizeStartRef.current.imgY;
+          
+          const aspectRatio = resizeStartRef.current.height / resizeStartRef.current.width;
+          const corner = resizeCornerRef.current;
+          
+          if (corner === 'br') {
+            newWidth = Math.max(50, resizeStartRef.current.width + dx);
+            newHeight = newWidth * aspectRatio;
+          } else if (corner === 'bl') {
+            newWidth = Math.max(50, resizeStartRef.current.width - dx);
+            newHeight = newWidth * aspectRatio;
+            newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
+          } else if (corner === 'tr') {
+            newWidth = Math.max(50, resizeStartRef.current.width + dx);
+            newHeight = newWidth * aspectRatio;
+            newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
+          } else if (corner === 'tl') {
+            newWidth = Math.max(50, resizeStartRef.current.width - dx);
+            newHeight = newWidth * aspectRatio;
+            newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
+            newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
+          }
+          
+          setImages(prev => prev.map(img =>
+            img.id === currentResizingId ? { ...img, width: newWidth, height: newHeight, x: newX, y: newY } : img
+          ));
         }
-        
-        setImages(prev => prev.map(img =>
-          img.id === currentResizingId ? { ...img, width: newWidth, height: newHeight, x: newX, y: newY } : img
-        ));
       }
     } else if (currentRotatingId) {
       const rect = boardRef.current?.getBoundingClientRect();
@@ -842,9 +918,12 @@ function App() {
     resizeCornerRef.current = null;
     setRotatingId(null);
     rotatingIdRef.current = null;
+    setIsGroupResize(false);
     
     // Clear initial positions after drag ends
     initialPositionsRef.current.clear();
+    initialGroupPositionsRef.current.clear();
+    groupBoundsRef.current = null;
   }, [images]);
 
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1045,7 +1124,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.4</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.0</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1268,6 +1347,57 @@ function App() {
                       }`}
                       style={{ zIndex: 10 }} 
                     />
+                    
+                    {/* Resize handles for multi-selection (only on first selected image to avoid duplicates) */}
+                    {selectedImageIds.includes(img.id) && selectedImageIds.length > 1 && selectedImageIds[0] === img.id && (() => {
+                      const selectedImages = images.filter(i => selectedImageIds.includes(i.id));
+                      const minX = Math.min(...selectedImages.map(i => i.x));
+                      const minY = Math.min(...selectedImages.map(i => i.y));
+                      const maxX = Math.max(...selectedImages.map(i => i.x + i.width));
+                      const maxY = Math.max(...selectedImages.map(i => i.y + i.height));
+                      const firstImg = selectedImages[0];
+                      
+                      return (
+                        <>
+                          <div
+                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                            style={{
+                              left: (minX - firstImg.x) - 6,
+                              top: (minY - firstImg.y) - 6,
+                              zIndex: 20
+                            }}
+                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tl')}
+                          />
+                          <div
+                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                            style={{
+                              right: (firstImg.x + firstImg.width - maxX) - 6,
+                              top: (minY - firstImg.y) - 6,
+                              zIndex: 20
+                            }}
+                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tr')}
+                          />
+                          <div
+                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                            style={{
+                              left: (minX - firstImg.x) - 6,
+                              bottom: (firstImg.y + firstImg.height - maxY) - 6,
+                              zIndex: 20
+                            }}
+                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'bl')}
+                          />
+                          <div
+                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                            style={{
+                              right: (firstImg.x + firstImg.width - maxX) - 6,
+                              bottom: (firstImg.y + firstImg.height - maxY) - 6,
+                              zIndex: 20
+                            }}
+                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
+                          />
+                        </>
+                      );
+                    })()}
                     
                     <div
                       className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
