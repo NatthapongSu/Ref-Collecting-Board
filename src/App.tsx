@@ -112,6 +112,9 @@ function App() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
   const [showColorPanel, setShowColorPanel] = useState(true);
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
@@ -253,10 +256,20 @@ function App() {
   const rotatingIdRef = useRef<string | null>(null);
   const rotateStartRef = useRef({ angle: 0, centerX: 0, centerY: 0 });
   const activeCanvasIdRef = useRef<string>('');
+  const isSelectingRef = useRef(false);
+  const selectionBoxRef = useRef<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   
   useEffect(() => {
     activeCanvasIdRef.current = activeCanvasId;
   }, [activeCanvasId]);
+  
+  useEffect(() => {
+    isSelectingRef.current = isSelecting;
+  }, [isSelecting]);
+  
+  useEffect(() => {
+    selectionBoxRef.current = selectionBox;
+  }, [selectionBox]);
 
   // Load from IndexedDB (with localStorage migration)
   useEffect(() => {
@@ -582,9 +595,28 @@ function App() {
     e.preventDefault();
     const img = images.find(i => i.id === id);
     if (!img) return;
+    
+    // Handle multi-select with Ctrl/Cmd
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedImageIds(prev => {
+        if (prev.includes(id)) {
+          const newIds = prev.filter(i => i !== id);
+          setSelectedImageId(newIds.length === 1 ? newIds[0] : null);
+          return newIds;
+        } else {
+          return [...prev, id];
+        }
+      });
+    } else {
+      // If clicking on an already selected image, keep selection for dragging
+      if (!selectedImageIds.includes(id)) {
+        setSelectedImageIds([id]);
+        setSelectedImageId(id);
+      }
+    }
+    
     setDraggingId(id);
     draggingIdRef.current = id;
-    setSelectedImageId(id);
     const rect = boardRef.current?.getBoundingClientRect();
     if (rect) {
       const offset = {
@@ -656,8 +688,16 @@ function App() {
     const currentIsPanning = isPanningRef.current;
     const currentResizingId = resizingIdRef.current;
     const currentRotatingId = rotatingIdRef.current;
+    const currentIsSelecting = isSelectingRef.current;
 
-    if (currentResizingId) {
+    if (currentIsSelecting) {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (rect) {
+        const endX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const endY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        setSelectionBox(prev => prev ? { ...prev, endX, endY } : null);
+      }
+    } else if (currentResizingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
         const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
@@ -714,9 +754,26 @@ function App() {
       if (rect) {
         const x = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current - dragOffsetRef.current.x;
         const y = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current - dragOffsetRef.current.y;
-        setImages(prev => prev.map(img =>
-          img.id === currentDraggingId ? { ...img, x, y } : img
-        ));
+        
+        // Check if we're dragging a multi-selected image
+        setSelectedImageIds(currentSelectedIds => {
+          if (currentSelectedIds.includes(currentDraggingId) && currentSelectedIds.length > 1) {
+            // Move all selected images
+            const dx = x - (images.find(img => img.id === currentDraggingId)?.x || 0);
+            const dy = y - (images.find(img => img.id === currentDraggingId)?.y || 0);
+            setImages(prev => prev.map(img =>
+              currentSelectedIds.includes(img.id) 
+                ? { ...img, x: img.x + dx, y: img.y + dy }
+                : img
+            ));
+          } else {
+            // Move single image
+            setImages(prev => prev.map(img =>
+              img.id === currentDraggingId ? { ...img, x, y } : img
+            ));
+          }
+          return currentSelectedIds;
+        });
       }
     } else if (currentIsPanning) {
       const dx = e.clientX - panStartRef.current.x;
@@ -730,6 +787,35 @@ function App() {
   }, []);
 
   const handleMouseUp = useCallback(() => {
+    // Finalize selection box if selecting
+    if (isSelectingRef.current && selectionBoxRef.current) {
+      const box = selectionBoxRef.current;
+      const minX = Math.min(box.startX, box.endX);
+      const maxX = Math.max(box.startX, box.endX);
+      const minY = Math.min(box.startY, box.endY);
+      const maxY = Math.max(box.startY, box.endY);
+      
+      // Find images within selection box
+      const selectedIds = images.filter(img => {
+        const imgCenterX = img.x + img.width / 2;
+        const imgCenterY = img.y + img.height / 2;
+        return imgCenterX >= minX && imgCenterX <= maxX && 
+               imgCenterY >= minY && imgCenterY <= maxY;
+      }).map(img => img.id);
+      
+      setSelectedImageIds(selectedIds);
+      if (selectedIds.length === 1) {
+        setSelectedImageId(selectedIds[0]);
+      } else {
+        setSelectedImageId(null);
+      }
+      
+      setIsSelecting(false);
+      isSelectingRef.current = false;
+      setSelectionBox(null);
+      selectionBoxRef.current = null;
+    }
+    
     setDraggingId(null);
     draggingIdRef.current = null;
     setIsPanning(false);
@@ -740,7 +826,7 @@ function App() {
     resizeCornerRef.current = null;
     setRotatingId(null);
     rotatingIdRef.current = null;
-  }, []);
+  }, [images]);
 
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -750,6 +836,19 @@ function App() {
     // Only deselect if not in grab mode and not clicking on an image
     if (!isImageElement && !isGrabMode) {
       setSelectedImageId(null);
+      setSelectedImageIds([]);
+      
+      // Start selection box if not in grab mode
+      if (e.button === 0) {
+        const rect = boardRef.current?.getBoundingClientRect();
+        if (rect) {
+          const startX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+          const startY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+          setSelectionBox({ startX, startY, endX: startX, endY: startY });
+          setIsSelecting(true);
+          isSelectingRef.current = true;
+        }
+      }
     }
     
     // Start panning if middle mouse button, alt key, or grab mode is active
@@ -927,7 +1026,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.5</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.6</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1140,9 +1239,16 @@ function App() {
                 />
 
                 {/* Selection border and handles */}
-                {selectedImageId === img.id && !isColorPicking && (
+                {(selectedImageId === img.id || selectedImageIds.includes(img.id)) && !isColorPicking && (
                   <>
-                    <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" style={{ zIndex: 10 }} />
+                    <div 
+                      className={`absolute inset-0 rounded-lg ring-2 pointer-events-none ${
+                        selectedImageIds.includes(img.id) && selectedImageIds.length > 1 
+                          ? 'ring-purple-400' 
+                          : 'ring-blue-400'
+                      }`}
+                      style={{ zIndex: 10 }} 
+                    />
                     
                     <div
                       className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
@@ -1172,7 +1278,8 @@ function App() {
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
                     />
 
-                    {/* Layer controls toolbar */}
+                    {/* Layer controls toolbar - only show for single selection */}
+                    {selectedImageId === img.id && selectedImageIds.length <= 1 && (
                     <div 
                       className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white rounded-lg shadow-lg px-1.5 py-1 border border-gray-200"
                       style={{ zIndex: 30 }}
@@ -1230,6 +1337,17 @@ function App() {
                         </svg>
                       </button>
                     </div>
+                    )}
+                    
+                    {/* Multi-selection counter */}
+                    {selectedImageIds.includes(img.id) && selectedImageIds.length > 1 && selectedImageId === img.id && (
+                      <div 
+                        className="absolute -top-10 left-1/2 -translate-x-1/2 bg-purple-500 text-white px-3 py-1 rounded-full shadow-lg text-xs font-medium whitespace-nowrap"
+                        style={{ zIndex: 30 }}
+                      >
+                        {selectedImageIds.length} images selected
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1256,6 +1374,19 @@ function App() {
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium">
               ✓ {copiedText} copied!
             </div>
+          )}
+
+          {/* Selection Box */}
+          {selectionBox && (
+            <div
+              className="absolute border-2 border-blue-500 bg-blue-500 bg-opacity-10 pointer-events-none"
+              style={{
+                left: Math.min(selectionBox.startX, selectionBox.endX),
+                top: Math.min(selectionBox.startY, selectionBox.endY),
+                width: Math.abs(selectionBox.endX - selectionBox.startX),
+                height: Math.abs(selectionBox.endY - selectionBox.startY),
+              }}
+            />
           )}
         </div>
 
