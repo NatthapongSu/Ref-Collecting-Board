@@ -500,6 +500,16 @@ function App() {
     return () => document.removeEventListener('paste', handlePaste);
   }, []);
 
+  // Global mouseup listener to ensure drag state is always cleared
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
   // Touch support for mobile
   useEffect(() => {
     const board = boardRef.current;
@@ -1333,7 +1343,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.8</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.9</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1640,6 +1650,9 @@ function App() {
                     } else {
                       handleImageMouseDown(e, img.id);
                     }
+                  }}
+                  onMouseUp={() => {
+                    handleMouseUp();
                   }}
                   onClick={(e) => {
                     if (!isColorPicking && !isPanningMode) {
