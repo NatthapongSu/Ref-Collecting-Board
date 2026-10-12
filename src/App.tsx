@@ -1398,7 +1398,7 @@ function App() {
           {/* Selection Box */}
           {selectionBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-50 pointer-events-none rounded-sm"
+              className="absolute border-2 border-blue-500 bg-blue-400/50 pointer-events-none rounded-sm"
               style={{
                 left: Math.min(selectionBox.startX, selectionBox.endX) * zoom + boardOffset.x,
                 top: Math.min(selectionBox.startY, selectionBox.endY) * zoom + boardOffset.y,
