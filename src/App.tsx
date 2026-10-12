@@ -636,6 +636,7 @@ function App() {
         <div className="flex items-center gap-2">
           <span className="text-xl">🎨</span>
           <h1 className="text-lg font-semibold text-gray-800">Art Board</h1>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">v0.1</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-2" />
