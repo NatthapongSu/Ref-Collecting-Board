@@ -768,6 +768,47 @@ function App() {
     if (selectedImageId === id) setSelectedImageId(null);
   };
 
+  // Layer control functions
+  const bringForward = (id: string) => {
+    setImages(prev => {
+      const index = prev.findIndex(img => img.id === id);
+      if (index === -1 || index === prev.length - 1) return prev; // Already at front
+      const newImages = [...prev];
+      [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+      return newImages;
+    });
+  };
+
+  const sendBackward = (id: string) => {
+    setImages(prev => {
+      const index = prev.findIndex(img => img.id === id);
+      if (index <= 0) return prev; // Already at back
+      const newImages = [...prev];
+      [newImages[index], newImages[index - 1]] = [newImages[index - 1], newImages[index]];
+      return newImages;
+    });
+  };
+
+  const bringToFront = (id: string) => {
+    setImages(prev => {
+      const index = prev.findIndex(img => img.id === id);
+      if (index === -1 || index === prev.length - 1) return prev;
+      const newImages = prev.filter(img => img.id !== id);
+      newImages.push(prev[index]);
+      return newImages;
+    });
+  };
+
+  const sendToBack = (id: string) => {
+    setImages(prev => {
+      const index = prev.findIndex(img => img.id === id);
+      if (index <= 0) return prev;
+      const newImages = prev.filter(img => img.id !== id);
+      newImages.unshift(prev[index]);
+      return newImages;
+    });
+  };
+
   // Color picking from image
   const handleColorPickClick = (e: React.MouseEvent<HTMLImageElement>, imgId: string) => {
     if (!isColorPicking) return;
@@ -872,7 +913,7 @@ function App() {
         <div className="flex items-center gap-2">
           <span className="text-lg sm:text-xl">🎨</span>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.3</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.4</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1090,6 +1131,50 @@ function App() {
                       style={{ zIndex: 20 }}
                       onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
                     />
+
+                    {/* Layer controls toolbar */}
+                    <div 
+                      className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-lg shadow-lg px-2 py-1 border border-gray-200"
+                      style={{ zIndex: 30 }}
+                    >
+                      <button
+                        onClick={() => sendToBack(img.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        title="Send to back"
+                      >
+                        ⏬
+                      </button>
+                      <button
+                        onClick={() => sendBackward(img.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        title="Send backward"
+                      >
+                        ⬇️
+                      </button>
+                      <div className="w-px h-4 bg-gray-200" />
+                      <button
+                        onClick={() => bringForward(img.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        title="Bring forward"
+                      >
+                        ⬆️
+                      </button>
+                      <button
+                        onClick={() => bringToFront(img.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        title="Bring to front"
+                      >
+                        ⏫
+                      </button>
+                      <div className="w-px h-4 bg-gray-200" />
+                      <button
+                        onClick={() => deleteImage(img.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-100 text-red-500 text-sm"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
