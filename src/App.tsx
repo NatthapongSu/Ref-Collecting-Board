@@ -388,15 +388,21 @@ function App() {
   }, []);
 
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.target === boardRef.current || (e.target as HTMLElement).classList.contains('board-bg')) {
+    const target = e.target as HTMLElement;
+    const isImageElement = target.tagName === 'IMG' || target.closest('[data-image-id]');
+    
+    // Unselect if clicking on empty space (not on an image or its handles)
+    if (!isImageElement) {
       setSelectedImageId(null);
-      if (e.button === 1 || (e.button === 0 && e.altKey)) {
-        setIsPanning(true);
-        isPanningRef.current = true;
-        const start = { x: e.clientX, y: e.clientY };
-        setPanStart(start);
-        panStartRef.current = start;
-      }
+    }
+    
+    // Start panning if middle mouse button or alt+left click
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      setIsPanning(true);
+      isPanningRef.current = true;
+      const start = { x: e.clientX, y: e.clientY };
+      setPanStart(start);
+      panStartRef.current = start;
     }
   }, []);
 
@@ -552,6 +558,7 @@ function App() {
             {images.map(img => (
               <div
                 key={img.id}
+                data-image-id={img.id}
                 className="absolute group"
                 style={{
                   left: img.x,
