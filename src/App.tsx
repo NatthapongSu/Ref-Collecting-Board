@@ -1124,7 +1124,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.0</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.1</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1296,6 +1296,76 @@ function App() {
               height: '100%'
             }}
           >
+            {/* Group resize overlay */}
+            {selectedImageIds.length > 1 && (() => {
+              const selectedImages = images.filter(i => selectedImageIds.includes(i.id));
+              if (selectedImages.length === 0) return null;
+              
+              const minX = Math.min(...selectedImages.map(i => i.x));
+              const minY = Math.min(...selectedImages.map(i => i.y));
+              const maxX = Math.max(...selectedImages.map(i => i.x + i.width));
+              const maxY = Math.max(...selectedImages.map(i => i.y + i.height));
+              
+              return (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: minX,
+                    top: minY,
+                    width: maxX - minX,
+                    height: maxY - minY,
+                    zIndex: 999
+                  }}
+                >
+                  {/* Group bounding box outline */}
+                  <div
+                    className="absolute inset-0 border-2 border-purple-400 border-dashed pointer-events-none"
+                  />
+                  
+                  {/* Top-left handle */}
+                  <div
+                    className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform pointer-events-auto"
+                    style={{
+                      left: -6,
+                      top: -6,
+                      zIndex: 20
+                    }}
+                    onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'tl')}
+                  />
+                  {/* Top-right handle */}
+                  <div
+                    className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform pointer-events-auto"
+                    style={{
+                      right: -6,
+                      top: -6,
+                      zIndex: 20
+                    }}
+                    onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'tr')}
+                  />
+                  {/* Bottom-left handle */}
+                  <div
+                    className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform pointer-events-auto"
+                    style={{
+                      left: -6,
+                      bottom: -6,
+                      zIndex: 20
+                    }}
+                    onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'bl')}
+                  />
+                  {/* Bottom-right handle */}
+                  <div
+                    className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform pointer-events-auto"
+                    style={{
+                      right: -6,
+                      bottom: -6,
+                      zIndex: 20
+                    }}
+                    onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'br')}
+                  />
+                </div>
+              );
+            })()}
+            
             {images.map(img => (
               <div
                 key={img.id}
@@ -1348,56 +1418,7 @@ function App() {
                       style={{ zIndex: 10 }} 
                     />
                     
-                    {/* Resize handles for multi-selection (only on first selected image to avoid duplicates) */}
-                    {selectedImageIds.includes(img.id) && selectedImageIds.length > 1 && selectedImageIds[0] === img.id && (() => {
-                      const selectedImages = images.filter(i => selectedImageIds.includes(i.id));
-                      const minX = Math.min(...selectedImages.map(i => i.x));
-                      const minY = Math.min(...selectedImages.map(i => i.y));
-                      const maxX = Math.max(...selectedImages.map(i => i.x + i.width));
-                      const maxY = Math.max(...selectedImages.map(i => i.y + i.height));
-                      const firstImg = selectedImages[0];
-                      
-                      return (
-                        <>
-                          <div
-                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
-                            style={{
-                              left: (minX - firstImg.x) - 6,
-                              top: (minY - firstImg.y) - 6,
-                              zIndex: 20
-                            }}
-                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tl')}
-                          />
-                          <div
-                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
-                            style={{
-                              right: (firstImg.x + firstImg.width - maxX) - 6,
-                              top: (minY - firstImg.y) - 6,
-                              zIndex: 20
-                            }}
-                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tr')}
-                          />
-                          <div
-                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
-                            style={{
-                              left: (minX - firstImg.x) - 6,
-                              bottom: (firstImg.y + firstImg.height - maxY) - 6,
-                              zIndex: 20
-                            }}
-                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'bl')}
-                          />
-                          <div
-                            className="absolute w-3 h-3 bg-white border-2 border-purple-500 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
-                            style={{
-                              right: (firstImg.x + firstImg.width - maxX) - 6,
-                              bottom: (firstImg.y + firstImg.height - maxY) - 6,
-                              zIndex: 20
-                            }}
-                            onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
-                          />
-                        </>
-                      );
-                    })()}
+                    {/* Resize handles for multi-selection - rendered separately below */}
                     
                     <div
                       className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
