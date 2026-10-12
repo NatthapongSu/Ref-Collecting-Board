@@ -1098,8 +1098,11 @@ function App() {
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
-                        hsl(${hsv.h}, 0%, ${hsv.v}%), 
-                        hsl(${hsv.h}, 100%, ${hsv.v}%))`
+                        rgb(${Math.round(hsv.v * 2.55)}, ${Math.round(hsv.v * 2.55)}, ${Math.round(hsv.v * 2.55)}), 
+                        ${(() => {
+                          const rgb = hsvToRgb(hsv.h, 100, hsv.v);
+                          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+                        })()})`
                     }}
                   />
                 </div>
@@ -1115,9 +1118,11 @@ function App() {
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
-                        hsl(${hsv.h}, ${hsv.s}%, 0%), 
-                        hsl(${hsv.h}, ${hsv.s}%, ${hsv.v / 2}%), 
-                        hsl(${hsv.h}, ${hsv.s}%, ${hsv.v}%))`
+                        rgb(0, 0, 0), 
+                        ${(() => {
+                          const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+                          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+                        })()})`
                     }}
                   />
                 </div>
