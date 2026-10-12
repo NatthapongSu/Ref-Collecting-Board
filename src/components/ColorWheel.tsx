@@ -43,16 +43,17 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     }
 
     // Draw square with pixel-perfect HSL rendering
-    // Lightness range: 50% at top (pure hue) to 0% at bottom (black)
+    // Top-left: L=100% (white), Top-right: L=0% (black)
+    // Bottom-left: L=50%, S=0% (gray), Bottom-right: L=50%, S=100% (pure hue)
     const imageData = ctx.createImageData(Math.ceil(squareSize), Math.ceil(squareSize));
     const data = imageData.data;
     
     for (let py = 0; py < squareSize; py++) {
       for (let px = 0; px < squareSize; px++) {
-        // Map pixel position to saturation and lightness
-        const s = (px / squareSize) * 100;
-        // Top = 50% lightness (pure hue), Bottom = 0% lightness (black)
-        const l = 50 * (1 - py / squareSize);
+        // Horizontal: lightness from 100% (left) to 0% (right)
+        const l = 100 * (1 - px / squareSize);
+        // Vertical: saturation from 0% (top) to 100% (bottom)
+        const s = (py / squareSize) * 100;
         
         // Convert HSL to RGB
         const [r, g, b] = hslToRgb(hue, s, l);
@@ -152,10 +153,10 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   };
 
   const updateSL = (pos: { x: number; y: number }) => {
-    // Saturation: left = 0, right = 100
-    const s = Math.max(0, Math.min(100, ((pos.x - squareLeft) / squareSize) * 100));
-    // Lightness: top = 50 (pure hue), bottom = 0 (black)
-    const l = Math.max(0, Math.min(50, (1 - (pos.y - squareTop) / squareSize) * 50));
+    // Horizontal: lightness from 100% (left) to 0% (right)
+    const l = Math.max(0, Math.min(100, (1 - (pos.x - squareLeft) / squareSize) * 100));
+    // Vertical: saturation from 0% (top) to 100% (bottom)
+    const s = Math.max(0, Math.min(100, ((pos.y - squareTop) / squareSize) * 100));
     onChange(hue, Math.round(s), Math.round(l));
   };
 
@@ -174,11 +175,11 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
 };
 
 function getSLPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, l: number) {
-  // Map saturation (0-100) and lightness (0-50) to square coordinates
-  // Saturation: 0 at left, 100 at right
-  // Lightness: 50 at top (pure hue), 0 at bottom (black)
-  const x = squareLeft + (s / 100) * squareSize;
-  const y = squareTop + (1 - l / 50) * squareSize;
+  // Map saturation and lightness to square coordinates
+  // Horizontal: lightness from 100% (left) to 0% (right)
+  // Vertical: saturation from 0% (top) to 100% (bottom)
+  const x = squareLeft + (1 - l / 100) * squareSize;
+  const y = squareTop + (s / 100) * squareSize;
   return { x, y };
 }
 
