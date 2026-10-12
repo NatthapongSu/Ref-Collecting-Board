@@ -1315,7 +1315,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.5</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.6</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1569,6 +1569,24 @@ function App() {
                     }}
                     onMouseDown={(e) => handleResizeMouseDown(e, selectedImages[0].id, 'br')}
                   />
+                  
+                  {/* Delete button for group */}
+                  <button
+                    onClick={() => {
+                      const idsToDelete = [...selectedImageIds];
+                      setImages(prev => prev.filter(i => !idsToDelete.includes(i.id)));
+                      setSelectedImageIds([]);
+                      setSelectedImageId(null);
+                    }}
+                    className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-white border-2 border-red-500 hover:bg-red-50 transition-colors pointer-events-auto"
+                    style={{ zIndex: 20 }}
+                    title="Delete all selected images"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
                 </div>
               );
             })()}
@@ -1717,31 +1735,13 @@ function App() {
                     </div>
                     )}
                     
-                    {/* Multi-selection counter and delete */}
+                    {/* Multi-selection counter */}
                     {selectedImageIds.includes(img.id) && selectedImageIds.length > 1 && selectedImageId === img.id && (
                       <div 
-                        className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-2"
+                        className="absolute -top-10 left-1/2 -translate-x-1/2 bg-purple-500 text-white px-3 py-1 rounded-full shadow-lg text-xs font-medium whitespace-nowrap"
                         style={{ zIndex: 30 }}
                       >
-                        <div className="bg-purple-500 text-white px-3 py-1 rounded-full shadow-lg text-xs font-medium whitespace-nowrap">
-                          {selectedImageIds.length} images selected
-                        </div>
-                        <button
-                          onClick={() => {
-                            const idsToDelete = [...selectedImageIds];
-                            setImages(prev => prev.filter(i => !idsToDelete.includes(i.id)));
-                            setSelectedImageIds([]);
-                            setSelectedImageId(null);
-                          }}
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-colors"
-                          title="Delete all selected images"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                          </svg>
-                        </button>
+                        {selectedImageIds.length} images selected
                       </div>
                     )}
                   </>
