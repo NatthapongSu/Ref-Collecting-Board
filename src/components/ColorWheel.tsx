@@ -48,10 +48,10 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     
     for (let py = 0; py < squareSize; py++) {
       for (let px = 0; px < squareSize; px++) {
-        // Top-left: S=0% L=100%, Top-right: S=100% L=50%
+        // Top-left: S=0% L=100%, Top-right: S=100% L=100%
         // Bottom-left: S=0% L=0%, Bottom-right: S=100% L=0%
         const s = (px / squareSize) * 100;
-        const l = (1 - py / squareSize) * (100 - (px / squareSize) * 50);
+        const l = (1 - py / squareSize) * 100;
         
         const [r, g, b] = hslToRgb(hue, s, l);
         
@@ -152,10 +152,8 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   const updateSL = (pos: { x: number; y: number }) => {
     // Saturation: left = 0%, right = 100%
     const s = Math.max(0, Math.min(100, ((pos.x - squareLeft) / squareSize) * 100));
-    // Lightness: top = 100% (left) or 50% (right), bottom = 0%
-    const yNorm = (pos.y - squareTop) / squareSize;
-    const xNorm = (pos.x - squareLeft) / squareSize;
-    const l = Math.max(0, Math.min(100, (1 - yNorm) * (100 - xNorm * 50)));
+    // Lightness: top = 100%, bottom = 0%
+    const l = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
     onChange(hue, Math.round(s), Math.round(l));
   };
 
@@ -174,11 +172,10 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
 };
 
 function getSLPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, l: number) {
-  // Top-left: S=0% L=100%, Top-right: S=100% L=50%
+  // Top-left: S=0% L=100%, Top-right: S=100% L=100%
   // Bottom-left: S=0% L=0%, Bottom-right: S=100% L=0%
   const x = squareLeft + (s / 100) * squareSize;
-  const maxL = 100 - (s / 100) * 50;
-  const y = squareTop + (1 - l / maxL) * squareSize;
+  const y = squareTop + (1 - l / 100) * squareSize;
   return { x, y };
 }
 
