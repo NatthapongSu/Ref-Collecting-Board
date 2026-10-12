@@ -52,11 +52,11 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
-    // Black gradient (left to right for saturation)
-    const gradLeft = ctx.createLinearGradient(squareLeft, squareTop, squareLeft + squareSize, squareTop);
-    gradLeft.addColorStop(0, 'rgba(0,0,0,1)');
-    gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = gradLeft;
+    // White gradient (left to right for saturation)
+    const gradWhite = ctx.createLinearGradient(squareLeft, squareTop, squareLeft + squareSize, squareTop);
+    gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
+    gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradWhite;
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
     // Black gradient (top to bottom for lightness)
@@ -153,8 +153,8 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   };
 
   const updateSL = (pos: { x: number; y: number }) => {
-    // Lightness: left (black) = 0%, right (pure hue) = 50%
-    const l = Math.max(0, Math.min(50, ((pos.x - squareLeft) / squareSize) * 50));
+    // Lightness: left (white) = 100%, right (pure hue) = 50%
+    const l = Math.max(50, Math.min(100, 100 - ((pos.x - squareLeft) / squareSize) * 50));
     // Saturation: top = 0%, bottom = 100%
     const s = Math.max(0, Math.min(100, ((pos.y - squareTop) / squareSize) * 100));
     onChange(hue, Math.round(s), Math.round(l));
@@ -176,9 +176,9 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
 
 function getSLPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, l: number) {
   // Map saturation and lightness to square coordinates
-  // Lightness: 0% (black) at left, 50% (pure hue) at right
+  // Lightness: 100% (white) at left, 50% (pure hue) at right
   // Saturation: 0% (top) to 100% (bottom)
-  const x = squareLeft + (l / 50) * squareSize;
+  const x = squareLeft + ((100 - l) / 50) * squareSize;
   const y = squareTop + (s / 100) * squareSize;
   return { x, y };
 }
