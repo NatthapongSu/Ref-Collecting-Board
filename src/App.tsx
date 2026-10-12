@@ -990,11 +990,11 @@ function App() {
         </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* Main Board */}
         <div
           ref={boardRef}
-          className="flex-1 relative overflow-hidden board-bg"
+          className="flex-1 relative overflow-hidden board-bg min-h-[300px]"
           style={{
             cursor: isColorPicking ? 'crosshair' : isPanningMode ? (isPanning ? 'grabbing' : 'grab') : isPanning ? 'grabbing' : 'default',
             backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
@@ -1121,27 +1121,19 @@ function App() {
 
         {/* Color Panel */}
         {showColorPanel && (
-          <>
-            {/* Mobile overlay */}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-30 z-40 lg:hidden"
+          <div className="
+            w-full lg:w-80 
+            bg-white border-t lg:border-t-0 lg:border-l border-gray-200 
+            flex flex-col overflow-hidden shadow-lg lg:shadow-sm
+            max-h-[50vh] lg:max-h-none
+          ">
+            {/* Mobile close button */}
+            <button
               onClick={() => setShowColorPanel(false)}
-            />
-            
-            {/* Panel */}
-            <div className="
-              fixed lg:relative right-0 top-0 lg:top-auto bottom-0 lg:bottom-auto
-              w-80 max-w-[85vw] lg:w-80 h-full lg:h-auto
-              bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-2xl lg:shadow-sm
-              z-50 lg:z-auto
-            ">
-              {/* Mobile close button */}
-              <button
-                onClick={() => setShowColorPanel(false)}
-                className="lg:hidden absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 z-10"
-              >
-                ✕
-              </button>
+              className="lg:hidden absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 z-10"
+            >
+              ✕
+            </button>
               
               <div className="p-4 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -1314,7 +1306,6 @@ function App() {
               )}
             </div>
           </div>
-          </>
         )}
       </div>
     </div>
