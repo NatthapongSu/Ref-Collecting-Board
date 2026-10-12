@@ -131,7 +131,7 @@ function App() {
   // Helper to update active canvas
   const updateActiveCanvas = (updates: Partial<Canvas>) => {
     setCanvases(prev => prev.map(c => 
-      c.id === activeCanvasId ? { ...c, ...updates } : c
+      c.id === activeCanvasIdRef.current ? { ...c, ...updates } : c
     ));
   };
 
@@ -147,6 +147,7 @@ function App() {
     };
     setCanvases(prev => [...prev, newCanvas]);
     setActiveCanvasId(newCanvas.id);
+    activeCanvasIdRef.current = newCanvas.id;
   };
 
   const removeCanvas = (id: string) => {
@@ -158,13 +159,16 @@ function App() {
       setCanvases(prev => prev.filter(c => c.id !== id));
       if (activeCanvasId === id) {
         const remaining = canvases.filter(c => c.id !== id);
-        setActiveCanvasId(remaining[0]?.id || '');
+        const newActiveId = remaining[0]?.id || '';
+        setActiveCanvasId(newActiveId);
+        activeCanvasIdRef.current = newActiveId;
       }
     }
   };
 
   const switchCanvas = (id: string) => {
     setActiveCanvasId(id);
+    activeCanvasIdRef.current = id;
     setSelectedImageId(null);
   };
 
@@ -179,7 +183,7 @@ function App() {
   // Wrapper functions to update active canvas state
   const setImages = (updater: BoardImage[] | ((prev: BoardImage[]) => BoardImage[])) => {
     setCanvases(prev => prev.map(c => {
-      if (c.id === activeCanvasId) {
+      if (c.id === activeCanvasIdRef.current) {
         return {
           ...c,
           images: typeof updater === 'function' ? updater(c.images) : updater
@@ -191,7 +195,7 @@ function App() {
 
   const setPickedColors = (updater: PickedColor[] | ((prev: PickedColor[]) => PickedColor[])) => {
     setCanvases(prev => prev.map(c => {
-      if (c.id === activeCanvasId) {
+      if (c.id === activeCanvasIdRef.current) {
         return {
           ...c,
           pickedColors: typeof updater === 'function' ? updater(c.pickedColors) : updater
@@ -203,7 +207,7 @@ function App() {
 
   const setBoardOffset = (updater: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => {
     setCanvases(prev => prev.map(c => {
-      if (c.id === activeCanvasId) {
+      if (c.id === activeCanvasIdRef.current) {
         return {
           ...c,
           boardOffset: typeof updater === 'function' ? updater(c.boardOffset) : updater
@@ -215,7 +219,7 @@ function App() {
 
   const setZoom = (updater: number | ((prev: number) => number)) => {
     setCanvases(prev => prev.map(c => {
-      if (c.id === activeCanvasId) {
+      if (c.id === activeCanvasIdRef.current) {
         return {
           ...c,
           zoom: typeof updater === 'function' ? updater(c.zoom) : updater
@@ -237,6 +241,11 @@ function App() {
   const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0, imgX: 0, imgY: 0 });
   const rotatingIdRef = useRef<string | null>(null);
   const rotateStartRef = useRef({ angle: 0, centerX: 0, centerY: 0 });
+  const activeCanvasIdRef = useRef<string>('');
+  
+  useEffect(() => {
+    activeCanvasIdRef.current = activeCanvasId;
+  }, [activeCanvasId]);
 
   // Load from IndexedDB (with localStorage migration)
   useEffect(() => {
@@ -252,10 +261,12 @@ function App() {
         const data = await loadData<any>(STORAGE_KEY);
         if (data && data.canvases && data.canvases.length > 0) {
           setCanvases(data.canvases);
-          setActiveCanvasId(data.activeCanvasId || data.canvases[0].id);
+          const activeId = data.activeCanvasId || data.canvases[0].id;
+          setActiveCanvasId(activeId);
+          activeCanvasIdRef.current = activeId;
           
           // Sync refs with active canvas
-          const activeCanvasData = data.canvases.find((c: Canvas) => c.id === data.activeCanvasId) || data.canvases[0];
+          const activeCanvasData = data.canvases.find((c: Canvas) => c.id === activeId) || data.canvases[0];
           boardOffsetRef.current = activeCanvasData.boardOffset;
           zoomRef.current = activeCanvasData.zoom;
         } else if (data && data.images) {
@@ -270,6 +281,7 @@ function App() {
           };
           setCanvases([defaultCanvas]);
           setActiveCanvasId(defaultCanvas.id);
+          activeCanvasIdRef.current = defaultCanvas.id;
           boardOffsetRef.current = defaultCanvas.boardOffset;
           zoomRef.current = defaultCanvas.zoom;
         } else {
@@ -284,6 +296,7 @@ function App() {
           };
           setCanvases([defaultCanvas]);
           setActiveCanvasId(defaultCanvas.id);
+          activeCanvasIdRef.current = defaultCanvas.id;
         }
       } catch (e) {
         console.error('Failed to load saved data:', e);
@@ -297,6 +310,7 @@ function App() {
         };
         setCanvases([defaultCanvas]);
         setActiveCanvasId(defaultCanvas.id);
+        activeCanvasIdRef.current = defaultCanvas.id;
       } finally {
         setIsLoading(false);
       }
