@@ -18,6 +18,15 @@ interface PickedColor {
   hsv: { h: number; s: number; v: number };
 }
 
+interface Canvas {
+  id: string;
+  name: string;
+  images: BoardImage[];
+  pickedColors: PickedColor[];
+  boardOffset: { x: number; y: number };
+  zoom: number;
+}
+
 const STORAGE_KEY = 'board-data';
 
 // HSV to RGB conversion
@@ -78,10 +87,13 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 function App() {
-  const [images, setImages] = useState<BoardImage[]>([]);
+  // Canvas management
+  const [canvases, setCanvases] = useState<Canvas[]>([]);
+  const [activeCanvasId, setActiveCanvasId] = useState<string>('');
+  
+  // UI state
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [pickedColors, setPickedColors] = useState<PickedColor[]>([]);
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
     rgb: { r: 255, g: 0, b: 0 },
@@ -95,11 +107,10 @@ function App() {
   useEffect(() => {
     isPanningModeRef.current = isPanningMode;
   }, [isPanningMode]);
+  
   const [copiedText, setCopiedText] = useState('');
-  const [boardOffset, setBoardOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [showColorPanel, setShowColorPanel] = useState(true);
   const [resizingId, setResizingId] = useState<string | null>(null);
@@ -109,6 +120,85 @@ function App() {
   const [rotateStart, setRotateStart] = useState({ angle: 0, centerX: 0, centerY: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [storageInfo, setStorageInfo] = useState<{ usage: number; quota: number } | null>(null);
+
+  // Get active canvas data
+  const activeCanvas = canvases.find(c => c.id === activeCanvasId);
+  const images = activeCanvas?.images || [];
+  const pickedColors = activeCanvas?.pickedColors || [];
+  const boardOffset = activeCanvas?.boardOffset || { x: 0, y: 0 };
+  const zoom = activeCanvas?.zoom || 1;
+
+  // Helper to update active canvas
+  const updateActiveCanvas = (updates: Partial<Canvas>) => {
+    setCanvases(prev => prev.map(c => 
+      c.id === activeCanvasId ? { ...c, ...updates } : c
+    ));
+  };
+
+  // Canvas management functions
+  const addCanvas = () => {
+    const newCanvas: Canvas = {
+      id: Date.now().toString(),
+      name: `Canvas ${canvases.length + 1}`,
+      images: [],
+      pickedColors: [],
+      boardOffset: { x: 0, y: 0 },
+      zoom: 1
+    };
+    setCanvases(prev => [...prev, newCanvas]);
+    setActiveCanvasId(newCanvas.id);
+  };
+
+  const removeCanvas = (id: string) => {
+    if (canvases.length === 1) {
+      alert('Cannot remove the last canvas');
+      return;
+    }
+    if (confirm('Remove this canvas and all its content?')) {
+      setCanvases(prev => prev.filter(c => c.id !== id));
+      if (activeCanvasId === id) {
+        const remaining = canvases.filter(c => c.id !== id);
+        setActiveCanvasId(remaining[0]?.id || '');
+      }
+    }
+  };
+
+  const switchCanvas = (id: string) => {
+    setActiveCanvasId(id);
+    setSelectedImageId(null);
+    
+    // Sync refs with new active canvas
+    const canvas = canvases.find(c => c.id === id);
+    if (canvas) {
+      boardOffsetRef.current = canvas.boardOffset;
+      zoomRef.current = canvas.zoom;
+    }
+  };
+
+  // Wrapper functions to update active canvas state
+  const setImages = (updater: BoardImage[] | ((prev: BoardImage[]) => BoardImage[])) => {
+    updateActiveCanvas({
+      images: typeof updater === 'function' ? updater(activeCanvas?.images || []) : updater
+    });
+  };
+
+  const setPickedColors = (updater: PickedColor[] | ((prev: PickedColor[]) => PickedColor[])) => {
+    updateActiveCanvas({
+      pickedColors: typeof updater === 'function' ? updater(activeCanvas?.pickedColors || []) : updater
+    });
+  };
+
+  const setBoardOffset = (updater: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => {
+    updateActiveCanvas({
+      boardOffset: typeof updater === 'function' ? updater(activeCanvas?.boardOffset || { x: 0, y: 0 }) : updater
+    });
+  };
+
+  const setZoom = (updater: number | ((prev: number) => number)) => {
+    updateActiveCanvas({
+      zoom: typeof updater === 'function' ? updater(activeCanvas?.zoom || 1) : updater
+    });
+  };
 
   const boardRef = useRef<HTMLDivElement>(null);
   const boardOffsetRef = useRef({ x: 0, y: 0 });
@@ -135,20 +225,53 @@ function App() {
 
         // Load from IndexedDB
         const data = await loadData<any>(STORAGE_KEY);
-        if (data) {
-          if (data.images) setImages(data.images);
-          if (data.pickedColors) setPickedColors(data.pickedColors);
-          if (data.boardOffset) {
-            setBoardOffset(data.boardOffset);
-            boardOffsetRef.current = data.boardOffset;
-          }
-          if (data.zoom) {
-            setZoom(data.zoom);
-            zoomRef.current = data.zoom;
-          }
+        if (data && data.canvases && data.canvases.length > 0) {
+          setCanvases(data.canvases);
+          setActiveCanvasId(data.activeCanvasId || data.canvases[0].id);
+          
+          // Sync refs with active canvas
+          const activeCanvasData = data.canvases.find((c: Canvas) => c.id === data.activeCanvasId) || data.canvases[0];
+          boardOffsetRef.current = activeCanvasData.boardOffset;
+          zoomRef.current = activeCanvasData.zoom;
+        } else if (data && data.images) {
+          // Migrate old single-canvas format
+          const defaultCanvas: Canvas = {
+            id: Date.now().toString(),
+            name: 'Canvas 1',
+            images: data.images || [],
+            pickedColors: data.pickedColors || [],
+            boardOffset: data.boardOffset || { x: 0, y: 0 },
+            zoom: data.zoom || 1
+          };
+          setCanvases([defaultCanvas]);
+          setActiveCanvasId(defaultCanvas.id);
+          boardOffsetRef.current = defaultCanvas.boardOffset;
+          zoomRef.current = defaultCanvas.zoom;
+        } else {
+          // Create default canvas
+          const defaultCanvas: Canvas = {
+            id: Date.now().toString(),
+            name: 'Canvas 1',
+            images: [],
+            pickedColors: [],
+            boardOffset: { x: 0, y: 0 },
+            zoom: 1
+          };
+          setCanvases([defaultCanvas]);
+          setActiveCanvasId(defaultCanvas.id);
         }
       } catch (e) {
         console.error('Failed to load saved data:', e);
+        const defaultCanvas: Canvas = {
+          id: Date.now().toString(),
+          name: 'Canvas 1',
+          images: [],
+          pickedColors: [],
+          boardOffset: { x: 0, y: 0 },
+          zoom: 1
+        };
+        setCanvases([defaultCanvas]);
+        setActiveCanvasId(defaultCanvas.id);
       } finally {
         setIsLoading(false);
       }
@@ -163,10 +286,8 @@ function App() {
 
     const timeoutId = setTimeout(async () => {
       const dataToSave = {
-        images,
-        pickedColors,
-        boardOffset,
-        zoom
+        canvases,
+        activeCanvasId
       };
       try {
         await saveData(STORAGE_KEY, dataToSave);
@@ -183,7 +304,7 @@ function App() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [images, pickedColors, boardOffset, zoom, isLoading]);
+  }, [canvases, activeCanvasId, isLoading]);
 
   // Handle paste
   useEffect(() => {
@@ -645,7 +766,7 @@ function App() {
         <div className="flex items-center gap-2">
           <span className="text-xl">🎨</span>
           <h1 className="text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">v0.1</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">v0.2</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-2" />
@@ -719,6 +840,42 @@ function App() {
         <div className="text-xs text-gray-400">
           Paste/Drop images • Drag to move • Corner handles to resize • Top handle to rotate • Alt+Drag to pan
         </div>
+      </div>
+
+      {/* Canvas Tabs */}
+      <div className="h-10 bg-gray-100 border-b border-gray-200 flex items-center px-2 gap-1 overflow-x-auto">
+        {canvases.map((canvas) => (
+          <div
+            key={canvas.id}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-t-lg text-sm cursor-pointer transition-all ${
+              canvas.id === activeCanvasId
+                ? 'bg-white text-gray-800 font-medium border-b-2 border-blue-500'
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            }`}
+            onClick={() => switchCanvas(canvas.id)}
+          >
+            <span>{canvas.name}</span>
+            {canvases.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeCanvas(canvas.id);
+                }}
+                className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-red-100 hover:text-red-600 text-xs"
+                title="Remove canvas"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={addCanvas}
+          className="px-3 py-1.5 rounded-t-lg text-sm bg-gray-200 text-gray-600 hover:bg-gray-300 transition-all"
+          title="Add new canvas"
+        >
+          + Add Canvas
+        </button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
