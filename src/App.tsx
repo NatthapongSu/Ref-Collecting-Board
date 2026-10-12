@@ -732,6 +732,9 @@ function App() {
     }
   };
 
+  const animationFrameRef = useRef<number | null>(null);
+  const pendingMousePosRef = useRef<{ x: number; y: number } | null>(null);
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const currentDraggingId = draggingIdRef.current;
     const currentIsPanning = isPanningRef.current;
@@ -739,18 +742,31 @@ function App() {
     const currentRotatingId = rotatingIdRef.current;
     const currentIsSelecting = isSelectingRef.current;
 
+    // Store mouse position for animation frame
+    pendingMousePosRef.current = { x: e.clientX, y: e.clientY };
+
+    // Cancel previous animation frame if exists
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    // Use requestAnimationFrame to batch updates
+    animationFrameRef.current = requestAnimationFrame(() => {
+      if (!pendingMousePosRef.current) return;
+      const { x: clientX, y: clientY } = pendingMousePosRef.current;
+
     if (currentIsSelecting) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
-        const endX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
-        const endY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        const endX = (clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const endY = (clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
         setSelectionBox(prev => prev ? { ...prev, endX, endY } : null);
       }
     } else if (currentResizingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
-        const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
-        const mouseY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        const mouseX = (clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const mouseY = (clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
         const dx = mouseX - resizeStartRef.current.x;
         const dy = mouseY - resizeStartRef.current.y;
         
@@ -842,8 +858,8 @@ function App() {
     } else if (currentRotatingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
-        const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
-        const mouseY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        const mouseX = (clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const mouseY = (clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
         const centerX = rotateStartRef.current.centerX;
         const centerY = rotateStartRef.current.centerY;
         
@@ -857,8 +873,8 @@ function App() {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
         // Calculate total delta from drag start
-        const totalDx = (e.clientX - dragStartPosRef.current.x) / zoomRef.current;
-        const totalDy = (e.clientY - dragStartPosRef.current.y) / zoomRef.current;
+        const totalDx = (clientX - dragStartPosRef.current.x) / zoomRef.current;
+        const totalDy = (clientY - dragStartPosRef.current.y) / zoomRef.current;
         
         // Move all selected images to their initial position + total delta
         setImages(prev => prev.map(img => {
@@ -870,17 +886,26 @@ function App() {
         }));
       }
     } else if (currentIsPanning) {
-      const dx = e.clientX - panStartRef.current.x;
-      const dy = e.clientY - panStartRef.current.y;
+      const dx = clientX - panStartRef.current.x;
+      const dy = clientY - panStartRef.current.y;
       const newOffset = { x: boardOffsetRef.current.x + dx, y: boardOffsetRef.current.y + dy };
       boardOffsetRef.current = newOffset;
       setBoardOffset(newOffset);
-      panStartRef.current = { x: e.clientX, y: e.clientY };
-      setPanStart({ x: e.clientX, y: e.clientY });
+      panStartRef.current = { x: clientX, y: clientY };
+      setPanStart({ x: clientX, y: clientY });
     }
+    
+    }); // Close requestAnimationFrame callback
   }, []);
 
   const handleMouseUp = useCallback(() => {
+    // Cancel any pending animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    pendingMousePosRef.current = null;
+
     // Finalize selection box if selecting
     if (isSelectingRef.current && selectionBoxRef.current) {
       const box = selectionBoxRef.current;
@@ -1131,7 +1156,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.3</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.4</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
