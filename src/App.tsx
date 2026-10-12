@@ -160,6 +160,7 @@ function App() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const initialPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const potentialDragIdRef = useRef<string | null>(null);
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
     rgb: { r: 255, g: 0, b: 0 },
@@ -738,11 +739,11 @@ function App() {
       }
     }
     
-    setDraggingId(id);
-    draggingIdRef.current = id;
-    
+    // Don't set draggingId yet - wait for mousemove to determine if it's a drag
     // Save drag start position and initial positions of all selected images
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    potentialDragIdRef.current = id;
+    
     const positions = new Map<string, { x: number; y: number }>();
     
     // If clicking on a selected image, move all selected images
@@ -883,6 +884,17 @@ function App() {
       
       // Update last processed position
       lastProcessedPosRef.current = { x: clientX, y: clientY };
+
+    // Check if we should start dragging (threshold: 5 pixels)
+    if (potentialDragIdRef.current && !currentDraggingId) {
+      const startDx = Math.abs(clientX - dragStartPosRef.current.x);
+      const startDy = Math.abs(clientY - dragStartPosRef.current.y);
+      if (startDx > 5 || startDy > 5) {
+        setDraggingId(potentialDragIdRef.current);
+        draggingIdRef.current = potentialDragIdRef.current;
+        potentialDragIdRef.current = null;
+      }
+    }
 
     if (currentIsSelecting) {
       const rect = boardRef.current?.getBoundingClientRect();
@@ -1035,6 +1047,7 @@ function App() {
     }
     pendingMousePosRef.current = null;
     lastProcessedPosRef.current = null;
+    potentialDragIdRef.current = null;
 
     // Finalize selection box if selecting
     if (isSelectingRef.current && selectionBoxRef.current) {
@@ -1320,7 +1333,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.7</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.8</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
