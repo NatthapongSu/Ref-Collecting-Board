@@ -1030,7 +1030,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.1</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1383,13 +1383,14 @@ function App() {
           {/* Selection Box */}
           {selectionBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-20 pointer-events-none rounded-sm"
+              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-5 pointer-events-none rounded-sm"
               style={{
-                left: Math.min(selectionBox.startX, selectionBox.endX),
-                top: Math.min(selectionBox.startY, selectionBox.endY),
-                width: Math.abs(selectionBox.endX - selectionBox.startX),
-                height: Math.abs(selectionBox.endY - selectionBox.startY),
-                boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
+                left: Math.min(selectionBox.startX, selectionBox.endX) * zoom + boardOffset.x,
+                top: Math.min(selectionBox.startY, selectionBox.endY) * zoom + boardOffset.y,
+                width: Math.abs(selectionBox.endX - selectionBox.startX) * zoom,
+                height: Math.abs(selectionBox.endY - selectionBox.startY) * zoom,
+                boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.15)',
+                zIndex: 9999,
               }}
             />
           )}
