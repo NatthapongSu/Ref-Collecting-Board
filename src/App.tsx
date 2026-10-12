@@ -89,6 +89,12 @@ function App() {
   });
   const [hsv, setHsv] = useState({ h: 0, s: 100, v: 100 });
   const [isColorPicking, setIsColorPicking] = useState(false);
+  const [isPanningMode, setIsPanningMode] = useState(false);
+  const isPanningModeRef = useRef(false);
+  
+  useEffect(() => {
+    isPanningModeRef.current = isPanningMode;
+  }, [isPanningMode]);
   const [copiedText, setCopiedText] = useState('');
   const [boardOffset, setBoardOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -512,7 +518,7 @@ function App() {
       setSelectedImageId(null);
     }
     
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    if (e.button === 1 || (e.button === 0 && (e.altKey || isPanningModeRef.current))) {
       setIsPanning(true);
       isPanningRef.current = true;
       const start = { x: e.clientX, y: e.clientY };
@@ -635,7 +641,25 @@ function App() {
         <div className="h-6 w-px bg-gray-200 mx-2" />
 
         <button
-          onClick={() => setIsColorPicking(!isColorPicking)}
+          onClick={() => {
+            setIsPanningMode(!isPanningMode);
+            setIsColorPicking(false);
+          }}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            isPanningMode
+              ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-300'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          title="Pan canvas (or hold Alt + drag)"
+        >
+          <span className="mr-1">✋</span> Grab
+        </button>
+
+        <button
+          onClick={() => {
+            setIsColorPicking(!isColorPicking);
+            setIsPanningMode(false);
+          }}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             isColorPicking
               ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
@@ -693,7 +717,7 @@ function App() {
           ref={boardRef}
           className="flex-1 relative overflow-hidden board-bg"
           style={{
-            cursor: isColorPicking ? 'crosshair' : isPanning ? 'grabbing' : 'default',
+            cursor: isColorPicking ? 'crosshair' : isPanningMode ? (isPanning ? 'grabbing' : 'grab') : isPanning ? 'grabbing' : 'default',
             backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
             backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
             backgroundPosition: `${boardOffset.x}px ${boardOffset.y}px`
