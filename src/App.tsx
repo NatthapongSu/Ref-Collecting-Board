@@ -612,13 +612,31 @@ function App() {
           return img;
         }));
       } else {
-        // Zoom canvas when nothing is selected
+        // Zoom canvas towards cursor position
+        const rect = boardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const oldZoom = zoomRef.current;
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(prev => {
-          const newZoom = Math.min(3, Math.max(0.2, prev * delta));
-          zoomRef.current = newZoom;
-          return newZoom;
-        });
+        const newZoom = Math.min(3, Math.max(0.2, oldZoom * delta));
+        
+        // Calculate world position under cursor before zoom
+        const worldX = (mouseX - boardOffsetRef.current.x) / oldZoom;
+        const worldY = (mouseY - boardOffsetRef.current.y) / oldZoom;
+        
+        // Calculate new offset to keep the same world position under cursor
+        const newOffsetX = mouseX - worldX * newZoom;
+        const newOffsetY = mouseY - worldY * newZoom;
+        
+        const newOffset = { x: newOffsetX, y: newOffsetY };
+        boardOffsetRef.current = newOffset;
+        setBoardOffset(newOffset);
+        
+        zoomRef.current = newZoom;
+        setZoom(newZoom);
       }
     };
 
@@ -1263,7 +1281,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.2</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.3</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
