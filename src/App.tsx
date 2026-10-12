@@ -120,6 +120,17 @@ function App() {
   const [rotateStart, setRotateStart] = useState({ angle: 0, centerX: 0, centerY: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [storageInfo, setStorageInfo] = useState<{ usage: number; quota: number } | null>(null);
+  const [colorWheelSize, setColorWheelSize] = useState(220);
+
+  // Update color wheel size based on screen width
+  useEffect(() => {
+    const updateSize = () => {
+      setColorWheelSize(window.innerWidth < 640 ? 180 : 220);
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   // Get active canvas data
   const activeCanvas = canvases.find(c => c.id === activeCanvasId);
@@ -370,6 +381,62 @@ function App() {
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
+  }, []);
+
+  // Touch support for mobile
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+
+    let touchStartPos = { x: 0, y: 0 };
+    let isTouchPanning = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const target = e.target as HTMLElement;
+        const isImageElement = target.tagName === 'IMG' || target.closest('[data-image-id]');
+        
+        if (!isImageElement || isPanningModeRef.current) {
+          isTouchPanning = true;
+          touchStartPos = { x: touch.clientX, y: touch.clientY };
+          setIsPanning(true);
+          isPanningRef.current = true;
+          setPanStart(touchStartPos);
+          panStartRef.current = touchStartPos;
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isTouchPanning && e.touches.length === 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const dx = touch.clientX - panStartRef.current.x;
+        const dy = touch.clientY - panStartRef.current.y;
+        const newOffset = { x: boardOffsetRef.current.x + dx, y: boardOffsetRef.current.y + dy };
+        boardOffsetRef.current = newOffset;
+        setBoardOffset(newOffset);
+        panStartRef.current = { x: touch.clientX, y: touch.clientY };
+        setPanStart({ x: touch.clientX, y: touch.clientY });
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isTouchPanning = false;
+      setIsPanning(false);
+      isPanningRef.current = false;
+    };
+
+    board.addEventListener('touchstart', handleTouchStart, { passive: false });
+    board.addEventListener('touchmove', handleTouchMove, { passive: false });
+    board.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      board.removeEventListener('touchstart', handleTouchStart);
+      board.removeEventListener('touchmove', handleTouchMove);
+      board.removeEventListener('touchend', handleTouchEnd);
+    };
   }, []);
 
   // Handle drop
@@ -801,62 +868,68 @@ function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Top Toolbar */}
-      <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 shadow-sm z-50">
+      <div className="h-auto min-h-[3.5rem] bg-white border-b border-gray-200 flex flex-wrap items-center px-2 sm:px-4 gap-2 shadow-sm z-50">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🎨</span>
-          <h1 className="text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">v0.2</span>
+          <span className="text-lg sm:text-xl">🎨</span>
+          <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.3</span>
         </div>
 
-        <div className="h-6 w-px bg-gray-200 mx-2" />
+        <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
 
-        <button
-          onClick={() => {
-            setIsPanningMode(!isPanningMode);
-            setIsColorPicking(false);
-          }}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            isPanningMode
-              ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-300'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          title="Pan canvas (or hold Alt + drag)"
-        >
-          <span className="mr-1">✋</span> Grab
-        </button>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => {
+              setIsPanningMode(!isPanningMode);
+              setIsColorPicking(false);
+            }}
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              isPanningMode
+                ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-300'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title="Pan canvas (or hold Alt + drag)"
+          >
+            <span className="sm:mr-1">✋</span> <span className="hidden sm:inline">Grab</span>
+          </button>
 
-        <button
-          onClick={() => {
-            setIsColorPicking(!isColorPicking);
-            setIsPanningMode(false);
-          }}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            isColorPicking
-              ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          title="Pick color from image"
-        >
-          <span className="mr-1">💧</span> Eyedropper
-        </button>
+          <button
+            onClick={() => {
+              setIsColorPicking(!isColorPicking);
+              setIsPanningMode(false);
+            }}
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              isColorPicking
+                ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title="Pick color from image"
+          >
+            <span className="sm:mr-1">💧</span> <span className="hidden sm:inline">Eyedropper</span>
+          </button>
 
-        <button
-          onClick={() => setShowColorPanel(!showColorPanel)}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all"
-        >
-          <span className="mr-1">🎯</span> Colors
-        </button>
+          <button
+            onClick={() => setShowColorPanel(!showColorPanel)}
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              showColorPanel
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span className="sm:mr-1">🎯</span> <span className="hidden sm:inline">Colors</span>
+          </button>
 
-        <button
-          onClick={clearBoard}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all"
-        >
-          <span className="mr-1">🗑️</span> Clear Board
-        </button>
+          <button
+            onClick={clearBoard}
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all"
+          >
+            <span className="sm:mr-1">🗑️</span> <span className="hidden sm:inline">Clear</span>
+          </button>
+        </div>
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
           <span>{Math.round(zoom * 100)}%</span>
           <button
             onClick={() => setZoom(1)}
@@ -868,7 +941,7 @@ function App() {
 
         {storageInfo && (
           <div 
-            className="text-xs text-gray-400 flex items-center gap-1"
+            className="text-xs text-gray-400 flex items-center gap-1 hidden sm:flex"
             title={`${(storageInfo.usage / 1024 / 1024).toFixed(2)} MB / ${(storageInfo.quota / 1024 / 1024).toFixed(0)} MB used`}
           >
             <span>💾</span>
@@ -876,17 +949,17 @@ function App() {
           </div>
         )}
 
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-gray-400 hidden lg:block">
           Paste/Drop images • Drag to move • Corner handles to resize • Top handle to rotate • Alt+Drag to pan
         </div>
       </div>
 
       {/* Canvas Tabs */}
-      <div className="h-10 bg-gray-100 border-b border-gray-200 flex items-center px-2 gap-1 overflow-x-auto">
+      <div className="h-8 sm:h-10 bg-gray-100 border-b border-gray-200 flex items-center px-1 sm:px-2 gap-1 overflow-x-auto">
         {canvases.map((canvas) => (
           <div
             key={canvas.id}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-t-lg text-sm cursor-pointer transition-all ${
+            className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-t-lg text-xs sm:text-sm cursor-pointer transition-all whitespace-nowrap ${
               canvas.id === activeCanvasId
                 ? 'bg-white text-gray-800 font-medium border-b-2 border-blue-500'
                 : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
@@ -900,7 +973,7 @@ function App() {
                   e.stopPropagation();
                   removeCanvas(canvas.id);
                 }}
-                className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-red-100 hover:text-red-600 text-xs"
+                className="ml-1 w-3 h-3 sm:w-4 sm:h-4 flex items-center justify-center rounded hover:bg-red-100 hover:text-red-600 text-xs"
                 title="Remove canvas"
               >
                 ×
@@ -910,10 +983,10 @@ function App() {
         ))}
         <button
           onClick={addCanvas}
-          className="px-3 py-1.5 rounded-t-lg text-sm bg-gray-200 text-gray-600 hover:bg-gray-300 transition-all"
+          className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-t-lg text-xs sm:text-sm bg-gray-200 text-gray-600 hover:bg-gray-300 transition-all whitespace-nowrap"
           title="Add new canvas"
         >
-          + Add Canvas
+          + <span className="hidden sm:inline">Add Canvas</span>
         </button>
       </div>
 
@@ -1048,18 +1121,39 @@ function App() {
 
         {/* Color Panel */}
         {showColorPanel && (
-          <div className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <span>🔮</span> Color Wheel
-              </h3>
+          <>
+            {/* Mobile overlay */}
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-30 z-40 lg:hidden"
+              onClick={() => setShowColorPanel(false)}
+            />
+            
+            {/* Panel */}
+            <div className="
+              fixed lg:relative right-0 top-0 lg:top-auto bottom-0 lg:bottom-auto
+              w-80 max-w-[85vw] lg:w-80 h-full lg:h-auto
+              bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-2xl lg:shadow-sm
+              z-50 lg:z-auto
+            ">
+              {/* Mobile close button */}
+              <button
+                onClick={() => setShowColorPanel(false)}
+                className="lg:hidden absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 z-10"
+              >
+                ✕
+              </button>
+              
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <span>🔮</span> Color Wheel
+                </h3>
               <div className="flex justify-center">
                 <ColorWheel
                   hue={hsv.h}
                   saturation={hsv.s}
                   value={hsv.v}
                   onChange={handleColorWheelChange}
-                  size={220}
+                  size={colorWheelSize}
                 />
               </div>
               
@@ -1220,6 +1314,7 @@ function App() {
               )}
             </div>
           </div>
+          </>
         )}
       </div>
     </div>
