@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ColorWheel from './components/ColorWheel';
 import { saveData, loadData, migrateFromLocalStorage, getStorageEstimate } from './lib/db';
 
@@ -86,6 +86,70 @@ function rgbToHex(r: number, g: number, b: number): string {
   return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
+// Memoized image component to prevent unnecessary re-renders
+const MemoizedImage = React.memo(({ 
+  img, 
+  isSelected, 
+  isMultiSelected, 
+  isDragging, 
+  isResizing, 
+  isRotating,
+  onMouseDown, 
+  onClick 
+}: {
+  img: BoardImage;
+  isSelected: boolean;
+  isMultiSelected: boolean;
+  isDragging: boolean;
+  isResizing: boolean;
+  isRotating: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent) => void;
+}) => {
+  return (
+    <div
+      data-image-id={img.id}
+      className="absolute group"
+      style={{
+        left: img.x,
+        top: img.y,
+        width: img.width,
+        height: img.height,
+        transform: `rotate(${img.rotation}deg)`,
+        transformOrigin: 'center center',
+        zIndex: isDragging || isResizing || isRotating ? 1000 : isSelected ? 500 : 1,
+        willChange: 'transform',
+        contain: 'layout style paint'
+      }}
+    >
+      <img
+        src={img.src}
+        alt="Reference"
+        className="w-full h-full rounded-lg shadow-lg select-none"
+        style={{
+          cursor: 'move',
+          pointerEvents: 'auto'
+        }}
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+        draggable={false}
+      />
+      
+      {/* Selection border */}
+      {(isSelected || isMultiSelected) && (
+        <div 
+          className={`absolute inset-0 rounded-lg ring-2 pointer-events-none ${
+            isMultiSelected ? 'ring-purple-400' : 'ring-blue-400'
+          }`}
+          style={{ zIndex: 10 }}
+        />
+      )}
+    </div>
+  );
+});
+
+MemoizedImage.displayName = 'MemoizedImage';
+
 function App() {
   // Canvas management
   const [canvases, setCanvases] = useState<Canvas[]>([]);
@@ -117,6 +181,7 @@ function App() {
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [showColorPanel, setShowColorPanel] = useState(true);
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
@@ -268,6 +333,38 @@ function App() {
   useEffect(() => {
     activeCanvasIdRef.current = activeCanvasId;
   }, [activeCanvasId]);
+
+  // Track viewport size for culling
+  useEffect(() => {
+    const updateViewport = () => {
+      if (boardRef.current) {
+        const rect = boardRef.current.getBoundingClientRect();
+        setViewport({ width: rect.width, height: rect.height });
+      }
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  // Calculate visible images for viewport culling
+  const visibleImages = useMemo(() => {
+    if (viewport.width === 0 || viewport.height === 0) return images;
+    
+    const padding = 100; // Extra padding to prevent pop-in
+    const visibleMinX = (-boardOffset.x / zoom) - padding;
+    const visibleMinY = (-boardOffset.y / zoom) - padding;
+    const visibleMaxX = visibleMinX + (viewport.width / zoom) + padding * 2;
+    const visibleMaxY = visibleMinY + (viewport.height / zoom) + padding * 2;
+
+    return images.filter(img => {
+      const imgMaxX = img.x + img.width;
+      const imgMaxY = img.y + img.height;
+      
+      return !(imgMaxX < visibleMinX || img.x > visibleMaxX ||
+               imgMaxY < visibleMinY || img.y > visibleMaxY);
+    });
+  }, [images, boardOffset, zoom, viewport]);
   
   useEffect(() => {
     isSelectingRef.current = isSelecting;
@@ -742,6 +839,14 @@ function App() {
     const currentRotatingId = rotatingIdRef.current;
     const currentIsSelecting = isSelectingRef.current;
 
+    // Throttle: Only process if we have significant movement
+    const lastPos = pendingMousePosRef.current;
+    if (lastPos) {
+      const dx = Math.abs(e.clientX - lastPos.x);
+      const dy = Math.abs(e.clientY - lastPos.y);
+      if (dx < 2 && dy < 2) return; // Skip tiny movements
+    }
+
     // Store mouse position for animation frame
     pendingMousePosRef.current = { x: e.clientX, y: e.clientY };
 
@@ -1156,7 +1261,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.8.4</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.0</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1238,6 +1343,8 @@ function App() {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+          <span className="hidden sm:inline">{images.length} images</span>
+          <span>•</span>
           <span>{Math.round(zoom * 100)}%</span>
           <button
             onClick={() => setZoom(1)}
@@ -1309,7 +1416,8 @@ function App() {
             cursor: isColorPicking ? 'crosshair' : isPanningMode ? (isPanning ? 'grabbing' : 'grab') : isPanning ? 'grabbing' : 'default',
             backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
             backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
-            backgroundPosition: `${boardOffset.x}px ${boardOffset.y}px`
+            backgroundPosition: `${boardOffset.x}px ${boardOffset.y}px`,
+            contain: 'strict'
           }}
           onMouseDown={handleBoardMouseDown}
           onMouseMove={handleMouseMove}
@@ -1398,7 +1506,7 @@ function App() {
               );
             })()}
             
-            {images.map(img => (
+            {visibleImages.map(img => (
               <div
                 key={img.id}
                 data-image-id={img.id}
@@ -1410,7 +1518,9 @@ function App() {
                   height: img.height,
                   transform: `rotate(${img.rotation}deg)`,
                   transformOrigin: 'center center',
-                  zIndex: draggingId === img.id || resizingId === img.id || rotatingId === img.id ? 1000 : selectedImageId === img.id ? 500 : 1
+                  zIndex: draggingId === img.id || resizingId === img.id || rotatingId === img.id ? 1000 : selectedImageId === img.id ? 500 : 1,
+                  willChange: 'transform',
+                  contain: 'layout style paint'
                 }}
               >
                 <img
