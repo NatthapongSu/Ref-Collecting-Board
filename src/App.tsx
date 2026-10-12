@@ -759,43 +759,30 @@ function App() {
           const bounds = groupBoundsRef.current;
           const corner = resizeCornerRef.current;
           
-          // Calculate uniform scale factor (maintain aspect ratio like single image)
+          // Calculate new dimensions maintaining aspect ratio (like single image)
           const originalWidth = bounds.maxX - bounds.minX;
           const originalHeight = bounds.maxY - bounds.minY;
+          const aspectRatio = originalHeight / originalWidth;
           
-          let scale = 1;
-          if (corner === 'br') {
-            scale = Math.max(0.1, (originalWidth + dx) / originalWidth);
-          } else if (corner === 'bl') {
-            scale = Math.max(0.1, (originalWidth - dx) / originalWidth);
-          } else if (corner === 'tr') {
-            scale = Math.max(0.1, (originalWidth + dx) / originalWidth);
-          } else if (corner === 'tl') {
-            scale = Math.max(0.1, (originalWidth - dx) / originalWidth);
-          }
-          
-          // Calculate new dimensions
-          const newWidth = originalWidth * scale;
-          const newHeight = originalHeight * scale;
-          
-          // Calculate new position based on corner
+          let newWidth = originalWidth;
+          let newHeight = originalHeight;
           let newMinX = bounds.minX;
           let newMinY = bounds.minY;
           
           if (corner === 'br') {
-            // Bottom-right: top-left stays fixed
-            newMinX = bounds.minX;
-            newMinY = bounds.minY;
+            newWidth = Math.max(50, originalWidth + dx);
+            newHeight = newWidth * aspectRatio;
           } else if (corner === 'bl') {
-            // Bottom-left: top-right stays fixed
+            newWidth = Math.max(50, originalWidth - dx);
+            newHeight = newWidth * aspectRatio;
             newMinX = bounds.maxX - newWidth;
-            newMinY = bounds.minY;
           } else if (corner === 'tr') {
-            // Top-right: bottom-left stays fixed
-            newMinX = bounds.minX;
+            newWidth = Math.max(50, originalWidth + dx);
+            newHeight = newWidth * aspectRatio;
             newMinY = bounds.maxY - newHeight;
           } else if (corner === 'tl') {
-            // Top-left: bottom-right stays fixed
+            newWidth = Math.max(50, originalWidth - dx);
+            newHeight = newWidth * aspectRatio;
             newMinX = bounds.maxX - newWidth;
             newMinY = bounds.maxY - newHeight;
           }
