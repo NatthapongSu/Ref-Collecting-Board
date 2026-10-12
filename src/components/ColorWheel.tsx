@@ -42,36 +42,30 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
       ctx.fill();
     }
 
-    // Draw square inside with proper HSL gradients
-    const squareRight = squareLeft + squareSize;
-    const squareBottom = squareTop + squareSize;
+    // Draw square with pixel-perfect HSL rendering
+    // Lightness range: 50% at top (pure hue) to 0% at bottom (black)
+    const imageData = ctx.createImageData(Math.ceil(squareSize), Math.ceil(squareSize));
+    const data = imageData.data;
     
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(squareLeft, squareTop, squareSize, squareSize);
-    ctx.clip();
-
-    // Layer 1: Base hue color (fills entire square)
-    ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
-
-    // Layer 2: White gradient for desaturation
-    // Goes from WHITE at left edge to TRANSPARENT at right edge
-    const gradWhite = ctx.createLinearGradient(squareLeft, squareTop, squareRight, squareTop);
-    gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
-    gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gradWhite;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
-
-    // Layer 3: Black gradient for darkness
-    // Goes from TRANSPARENT at top edge to BLACK at bottom edge
-    const gradBlack = ctx.createLinearGradient(squareLeft, squareTop, squareLeft, squareBottom);
-    gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
-    gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
-    ctx.fillStyle = gradBlack;
-    ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
-
-    ctx.restore();
+    for (let py = 0; py < squareSize; py++) {
+      for (let px = 0; px < squareSize; px++) {
+        // Map pixel position to saturation and lightness
+        const s = (px / squareSize) * 100;
+        // Top = 50% lightness (pure hue), Bottom = 0% lightness (black)
+        const l = 50 * (1 - py / squareSize);
+        
+        // Convert HSL to RGB
+        const [r, g, b] = hslToRgb(hue, s, l);
+        
+        const idx = (py * Math.ceil(squareSize) + px) * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = 255;
+      }
+    }
+    
+    ctx.putImageData(imageData, squareLeft, squareTop);
 
     // Draw square border
     ctx.beginPath();
@@ -158,10 +152,10 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   };
 
   const updateSL = (pos: { x: number; y: number }) => {
-    // Saturation: left (white) = 0, right (hue) = 100
+    // Saturation: left = 0, right = 100
     const s = Math.max(0, Math.min(100, ((pos.x - squareLeft) / squareSize) * 100));
-    // Lightness: top (light) = 100, bottom (dark) = 0
-    const l = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
+    // Lightness: top = 50 (pure hue), bottom = 0 (black)
+    const l = Math.max(0, Math.min(50, (1 - (pos.y - squareTop) / squareSize) * 50));
     onChange(hue, Math.round(s), Math.round(l));
   };
 
@@ -180,12 +174,36 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
 };
 
 function getSLPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, l: number) {
-  // Map saturation (0-100) and lightness (0-100) to square coordinates
-  // Saturation: 0 (white) at left, 100 (pure hue) at right
-  // Lightness: 100 (light) at top, 0 (black) at bottom
+  // Map saturation (0-100) and lightness (0-50) to square coordinates
+  // Saturation: 0 at left, 100 at right
+  // Lightness: 50 at top (pure hue), 0 at bottom (black)
   const x = squareLeft + (s / 100) * squareSize;
-  const y = squareTop + (1 - l / 100) * squareSize;
+  const y = squareTop + (1 - l / 50) * squareSize;
   return { x, y };
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h = h % 360;
+  s /= 100;
+  l /= 100;
+  
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ];
 }
 
 export default ColorWheel;
