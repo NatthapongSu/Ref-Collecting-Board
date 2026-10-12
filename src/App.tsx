@@ -678,6 +678,66 @@ function App() {
                   size={220}
                 />
               </div>
+              
+              {/* HSL Sliders */}
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Hue</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={hsl.h}
+                    onChange={(e) => handleColorWheelChange(Number(e.target.value), hsl.s, hsl.l)}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, 
+                        hsl(0, 100%, 50%), 
+                        hsl(60, 100%, 50%), 
+                        hsl(120, 100%, 50%), 
+                        hsl(180, 100%, 50%), 
+                        hsl(240, 100%, 50%), 
+                        hsl(300, 100%, 50%), 
+                        hsl(360, 100%, 50%))`
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Saturation</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={hsl.s}
+                    onChange={(e) => handleColorWheelChange(hsl.h, Number(e.target.value), hsl.l)}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, 
+                        hsl(${hsl.h}, 0%, ${hsl.l}%), 
+                        hsl(${hsl.h}, 100%, ${hsl.l}%))`
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Lightness</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={hsl.l}
+                    onChange={(e) => handleColorWheelChange(hsl.h, hsl.s, Number(e.target.value))}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, 
+                        hsl(${hsl.h}, ${hsl.s}%, 0%), 
+                        hsl(${hsl.h}, ${hsl.s}%, 50%), 
+                        hsl(${hsl.h}, ${hsl.s}%, 100%))`
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Current Color Display */}
