@@ -1045,7 +1045,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.3</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7.4</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1300,7 +1300,7 @@ function App() {
                     {/* Layer controls toolbar - only show for single selection */}
                     {selectedImageId === img.id && selectedImageIds.length <= 1 && (
                     <div 
-                      className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white rounded-lg shadow-lg px-1.5 py-1 border border-gray-200"
+                      className="absolute top-1/2 -right-14 -translate-y-1/2 flex flex-col gap-0.5 bg-white rounded-lg shadow-lg px-1.5 py-1 border border-gray-200"
                       style={{ zIndex: 30 }}
                     >
                       <button
@@ -1323,7 +1323,7 @@ function App() {
                           <polyline points="19 12 12 19 5 12"></polyline>
                         </svg>
                       </button>
-                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+                      <div className="h-px w-5 bg-gray-200 my-0.5" />
                       <button
                         onClick={() => bringForward(img.id)}
                         className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
@@ -1344,7 +1344,7 @@ function App() {
                           <polyline points="17 18 12 13 7 18"></polyline>
                         </svg>
                       </button>
-                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+                      <div className="h-px w-5 bg-gray-200 my-0.5" />
                       <button
                         onClick={() => deleteImage(img.id)}
                         className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 text-red-500 transition-colors"
@@ -1398,13 +1398,13 @@ function App() {
           {/* Selection Box */}
           {selectionBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-5 pointer-events-none rounded-sm"
+              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-50 pointer-events-none rounded-sm"
               style={{
                 left: Math.min(selectionBox.startX, selectionBox.endX) * zoom + boardOffset.x,
                 top: Math.min(selectionBox.startY, selectionBox.endY) * zoom + boardOffset.y,
                 width: Math.abs(selectionBox.endX - selectionBox.startX) * zoom,
                 height: Math.abs(selectionBox.endY - selectionBox.startY) * zoom,
-                boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.15)',
+                boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
                 zIndex: 9999,
               }}
             />
