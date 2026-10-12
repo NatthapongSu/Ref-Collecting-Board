@@ -166,38 +166,63 @@ function App() {
   const switchCanvas = (id: string) => {
     setActiveCanvasId(id);
     setSelectedImageId(null);
-    
-    // Sync refs with new active canvas
-    const canvas = canvases.find(c => c.id === id);
-    if (canvas) {
-      boardOffsetRef.current = canvas.boardOffset;
-      zoomRef.current = canvas.zoom;
-    }
   };
+
+  // Sync refs when active canvas changes
+  useEffect(() => {
+    if (activeCanvas) {
+      boardOffsetRef.current = activeCanvas.boardOffset;
+      zoomRef.current = activeCanvas.zoom;
+    }
+  }, [activeCanvasId, activeCanvas]);
 
   // Wrapper functions to update active canvas state
   const setImages = (updater: BoardImage[] | ((prev: BoardImage[]) => BoardImage[])) => {
-    updateActiveCanvas({
-      images: typeof updater === 'function' ? updater(activeCanvas?.images || []) : updater
-    });
+    setCanvases(prev => prev.map(c => {
+      if (c.id === activeCanvasId) {
+        return {
+          ...c,
+          images: typeof updater === 'function' ? updater(c.images) : updater
+        };
+      }
+      return c;
+    }));
   };
 
   const setPickedColors = (updater: PickedColor[] | ((prev: PickedColor[]) => PickedColor[])) => {
-    updateActiveCanvas({
-      pickedColors: typeof updater === 'function' ? updater(activeCanvas?.pickedColors || []) : updater
-    });
+    setCanvases(prev => prev.map(c => {
+      if (c.id === activeCanvasId) {
+        return {
+          ...c,
+          pickedColors: typeof updater === 'function' ? updater(c.pickedColors) : updater
+        };
+      }
+      return c;
+    }));
   };
 
   const setBoardOffset = (updater: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => {
-    updateActiveCanvas({
-      boardOffset: typeof updater === 'function' ? updater(activeCanvas?.boardOffset || { x: 0, y: 0 }) : updater
-    });
+    setCanvases(prev => prev.map(c => {
+      if (c.id === activeCanvasId) {
+        return {
+          ...c,
+          boardOffset: typeof updater === 'function' ? updater(c.boardOffset) : updater
+        };
+      }
+      return c;
+    }));
   };
 
   const setZoom = (updater: number | ((prev: number) => number)) => {
-    updateActiveCanvas({
-      zoom: typeof updater === 'function' ? updater(activeCanvas?.zoom || 1) : updater
-    });
+    setCanvases(prev => prev.map(c => {
+      if (c.id === activeCanvasId) {
+        return {
+          ...c,
+          zoom: typeof updater === 'function' ? updater(c.zoom) : updater
+        };
+      }
+      return c;
+    }));
   };
 
   const boardRef = useRef<HTMLDivElement>(null);
