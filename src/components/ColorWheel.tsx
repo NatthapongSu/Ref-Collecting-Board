@@ -228,19 +228,28 @@ function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y:
   const dot11 = v1x * v1x + v1y * v1y;
   const dot12 = v1x * v2x + v1y * v2y;
 
-  const inv = 1 / (dot00 * dot11 - dot01 * dot01);
-  const u = (dot11 * dot02 - dot01 * dot12) * inv;
-  const v = (dot00 * dot12 - dot01 * dot02) * inv;
-
-  // Clamp to triangle
-  if (u < 0 || v < 0 || u + v > 1) {
-    // Find closest point on triangle edge
-    const clamped = clampToTriangle(pos, triPoints);
-    return getPositionSL(clamped, triPoints);
+  const denom = dot00 * dot11 - dot01 * dot01;
+  if (Math.abs(denom) < 1e-10) {
+    // Degenerate triangle, return center values
+    return { s: 50, l: 50 };
   }
 
-  // u = weight for p1 (white), v = weight for p2 (black)
-  // 1-u-v = weight for p0 (pure hue)
+  const inv = 1 / denom;
+  let u = (dot11 * dot02 - dot01 * dot12) * inv;
+  let v = (dot00 * dot12 - dot01 * dot02) * inv;
+
+  // Clamp barycentric coordinates directly (no recursion)
+  // u = weight for p1 (white), v = weight for p2 (black), w = 1-u-v = weight for p0 (pure hue)
+  u = Math.max(0, Math.min(1, u));
+  v = Math.max(0, Math.min(1, v));
+
+  // Ensure u + v <= 1 (if not, scale them down proportionally)
+  if (u + v > 1) {
+    const scale = 1 / (u + v);
+    u *= scale;
+    v *= scale;
+  }
+
   const colorWeight = 1 - u - v;
   const sat = Math.min(100, Math.max(0, Math.round(colorWeight * 100)));
   const lit = Math.min(100, Math.max(0, Math.round(v * 100)));
@@ -248,35 +257,6 @@ function getPositionSL(pos: { x: number; y: number }, triPoints: { x: number; y:
   return { s: sat, l: lit };
 }
 
-function clampToTriangle(pos: { x: number; y: number }, triPoints: { x: number; y: number }[]) {
-  // Simple clamp: find nearest point on triangle edges
-  const [p0, p1, p2] = triPoints;
-  const edges = [
-    [p0, p1], [p1, p2], [p2, p0]
-  ];
 
-  let minDist = Infinity;
-  let closest = pos;
-
-  for (const [a, b] of edges) {
-    const cp = closestPointOnLine(pos, a, b);
-    const dist = Math.hypot(pos.x - cp.x, pos.y - cp.y);
-    if (dist < minDist) {
-      minDist = dist;
-      closest = cp;
-    }
-  }
-
-  return closest;
-}
-
-function closestPointOnLine(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) {
-  const abx = b.x - a.x;
-  const aby = b.y - a.y;
-  const apx = p.x - a.x;
-  const apy = p.y - a.y;
-  const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / (abx * abx + aby * aby)));
-  return { x: a.x + t * abx, y: a.y + t * aby };
-}
 
 export default ColorWheel;
