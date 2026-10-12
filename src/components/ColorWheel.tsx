@@ -6,9 +6,10 @@ interface ColorWheelProps {
   lightness: number;
   onChange: (h: number, s: number, l: number) => void;
   size?: number;
+  mode?: 'hsl' | 'hsv';
 }
 
-const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onChange, size = 220 }) => {
+const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onChange, size = 220, mode = 'hsl' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<'wheel' | 'square' | null>(null);
 
@@ -46,14 +47,28 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     const imageData = ctx.createImageData(Math.ceil(squareSize), Math.ceil(squareSize));
     const data = imageData.data;
     
+    // Convert current HSL to HSV for display
+    const sNorm = saturation / 100;
+    const lNorm = lightness / 100;
+    const v = lNorm + sNorm * Math.min(lNorm, 1 - lNorm);
+    const sHsv = v === 0 ? 0 : 2 * (1 - lNorm / v);
+    const currentHsv = { h: hue, s: sHsv * 100, v: v * 100 };
+    
     for (let py = 0; py < squareSize; py++) {
       for (let px = 0; px < squareSize; px++) {
-        // Top-left: S=0% L=100%, Top-right: S=100% L=100%
-        // Bottom-left: S=0% L=0%, Bottom-right: S=100% L=0%
         const s = (px / squareSize) * 100;
-        const l = (1 - py / squareSize) * 100;
         
-        const [r, g, b] = hslToRgb(hue, s, l);
+        let r: number, g: number, b: number;
+        
+        if (mode === 'hsv') {
+          // HSV mode: Y-axis is Value (100% top to 0% bottom)
+          const v = (1 - py / squareSize) * 100;
+          [r, g, b] = hsvToRgb(hue, s, v);
+        } else {
+          // HSL mode: Y-axis is Lightness (100% top to 0% bottom)
+          const l = (1 - py / squareSize) * 100;
+          [r, g, b] = hslToRgb(hue, s, l);
+        }
         
         const idx = (py * Math.ceil(squareSize) + px) * 4;
         data[idx] = r;
@@ -87,7 +102,9 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.fill();
 
     // Draw SL indicator in square
-    const slPos = getSLPosition(squareLeft, squareTop, squareSize, saturation, lightness);
+    const slPos = mode === 'hsv' 
+      ? getHSVPosition(squareLeft, squareTop, squareSize, currentHsv.s, currentHsv.v)
+      : getSLPosition(squareLeft, squareTop, squareSize, saturation, lightness);
     ctx.beginPath();
     ctx.arc(slPos.x, slPos.y, 7, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
@@ -152,9 +169,21 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
   const updateSL = (pos: { x: number; y: number }) => {
     // Saturation: left = 0%, right = 100%
     const s = Math.max(0, Math.min(100, ((pos.x - squareLeft) / squareSize) * 100));
-    // Lightness: top = 100%, bottom = 0%
-    const l = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
-    onChange(hue, Math.round(s), Math.round(l));
+    
+    if (mode === 'hsv') {
+      // Value: top = 100%, bottom = 0%
+      const v = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
+      // Convert HSV to HSL
+      const vNorm = v / 100;
+      const sNorm = s / 100;
+      const l = vNorm * (1 - sNorm / 2);
+      const lHsl = (l === 0 || l === 1) ? 0 : (vNorm - l) / Math.min(l, 1 - l);
+      onChange(hue, Math.round(lHsl * 100), Math.round(l * 100));
+    } else {
+      // Lightness: top = 100%, bottom = 0%
+      const l = Math.max(0, Math.min(100, (1 - (pos.y - squareTop) / squareSize) * 100));
+      onChange(hue, Math.round(s), Math.round(l));
+    }
   };
 
   return (
@@ -179,6 +208,14 @@ function getSLPosition(squareLeft: number, squareTop: number, squareSize: number
   return { x, y };
 }
 
+function getHSVPosition(squareLeft: number, squareTop: number, squareSize: number, s: number, v: number) {
+  // Saturation: 0 at left, 100 at right
+  // Value: 100 at top, 0 at bottom
+  const x = squareLeft + (s / 100) * squareSize;
+  const y = squareTop + (1 - v / 100) * squareSize;
+  return { x, y };
+}
+
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   h = h % 360;
   s /= 100;
@@ -187,6 +224,30 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs((h / 60) % 2 - 1));
   const m = l - c / 2;
+  
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ];
+}
+
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  h = h % 360;
+  s /= 100;
+  v /= 100;
+  
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
   
   let r = 0, g = 0, b = 0;
   if (h < 60) { r = c; g = x; }

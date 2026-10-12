@@ -733,6 +733,7 @@ function App() {
                   lightness={hsl.l}
                   onChange={handleColorWheelChange}
                   size={220}
+                  mode={colorMode}
                 />
               </div>
               
