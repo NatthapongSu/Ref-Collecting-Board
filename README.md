@@ -20,44 +20,57 @@ A web-based tool for collecting and organizing art references. Perfect for artis
 
 ### 🎨 Color Tools
 - **Eyedropper tool** - Pick colors from any image
-- **Color wheel** with triangle picker (HSL)
+- **Color wheel** with triangle picker (HSV)
 - **Color palette** - Save and organize picked colors
-- **Copy color codes** - HEX, RGB, and HSL formats
+- **Copy color codes** - HEX, RGB, and HSV formats
 - **Visual indicators** - See color position in the wheel
 
 ### 🖼️ Canvas Features
 - **Infinite canvas** - Pan and zoom freely
-- **Auto-save** - All data saved to browser cache
+- **Auto-save** - All data saved to browser cache (IndexedDB)
 - **Light theme** - Clean, minimal interface
 - **Dot grid background** - Visual reference for positioning
 
 ## 🚀 Quick Start
 
 ### Windows Users
-Simply double-click one of the batch files:
-
-- **`start.bat`** - Start development server (auto-installs dependencies)
-- **`build.bat`** - Build production version
+Simply double-click `quickstart.bat` and follow the menu!
 
 ### Manual Setup
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+#### Development
+```bash
+# Install dependencies
+npm install
 
-2. **Start development server:**
-   ```bash
-   npm run dev
-   ```
+# Start development server
+npm run dev
 
-3. **Open in browser:**
-   Navigate to `http://localhost:5173`
+# Build for production
+npm run build
+```
 
-4. **Build for production:**
-   ```bash
-   npm run build
-   ```
+#### Production
+```bash
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### 📦 Deploy to GitHub Pages
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
+
+**Quick steps:**
+1. Push code to GitHub
+2. Enable GitHub Pages in repository settings
+3. Select "GitHub Actions" as source
+4. Your site will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
 
 ## 📖 How to Use
 
@@ -76,20 +89,20 @@ Simply double-click one of the batch files:
 ### Picking Colors
 1. Click the **Eyedropper** button (💧) in the toolbar
 2. Click anywhere on an image to pick that color
-3. The color appears in the color panel with HEX, RGB, and HSL codes
+3. The color appears in the color panel with HEX, RGB, and HSV codes
 4. Click any code to copy it to clipboard
 5. Click **Save to Palette** to keep the color
 
 ### Using the Color Wheel
 - **Outer ring:** Click/drag to select hue (0-360°)
-- **Triangle:** Click/drag to adjust saturation and lightness
+- **Triangle:** Click/drag to adjust saturation and value
   - Top point: Pure color (100% saturation)
   - Bottom-left: White (0% saturation)
-  - Bottom-right: Black (0% lightness)
+  - Bottom-right: Black (0% value)
 
 ### Canvas Navigation
 - **Pan:** Hold `Alt` + drag on empty space
-- **Zoom:** Hold `Ctrl` + scroll mouse wheel
+- **Zoom:** Scroll mouse wheel on empty space
 - **Reset zoom:** Click the "Reset" button in toolbar
 
 ## 🎯 Use Cases
@@ -102,12 +115,13 @@ Simply double-click one of the batch files:
 
 ## 💾 Data Storage
 
-All data is automatically saved to your browser's localStorage:
-- Images (stored as base64)
+All data is automatically saved to your browser's IndexedDB:
+- Images (stored as compressed base64)
 - Color palettes
 - Canvas position and zoom
 - Image positions and transformations
 
+**Storage Capacity:** ~10GB (varies by browser)
 **Note:** Data is stored locally in your browser. Clearing browser data will remove saved content.
 
 ## 🛠️ Tech Stack
@@ -116,6 +130,7 @@ All data is automatically saved to your browser's localStorage:
 - **TypeScript** - Type safety
 - **Vite** - Build tool
 - **Tailwind CSS** - Styling
+- **IndexedDB** - Client-side storage
 - **Canvas API** - Color wheel rendering
 
 ## 📝 Tips
