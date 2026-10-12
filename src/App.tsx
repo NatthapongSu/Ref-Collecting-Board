@@ -668,7 +668,7 @@ function App() {
                   saturation={hsl.s}
                   lightness={hsl.l}
                   onChange={handleColorWheelChange}
-                  size={240}
+                  size={220}
                 />
               </div>
             </div>
