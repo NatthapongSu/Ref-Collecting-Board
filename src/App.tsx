@@ -898,7 +898,15 @@ function App() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="text-6xl mb-4 animate-pulse">🎨</div>
+          <div className="mb-4 animate-pulse flex justify-center">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
+            </svg>
+          </div>
           <p className="text-lg font-medium text-gray-700">Loading Art Board...</p>
           <p className="text-sm text-gray-500 mt-1">Restoring your workspace</p>
         </div>
@@ -911,9 +919,15 @@ function App() {
       {/* Top Toolbar */}
       <div className="h-auto min-h-[3.5rem] bg-white border-b border-gray-200 flex flex-wrap items-center px-2 sm:px-4 gap-2 shadow-sm z-50">
         <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-xl">🎨</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
+          </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.4</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.5</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -924,14 +938,20 @@ function App() {
               setIsPanningMode(!isPanningMode);
               setIsColorPicking(false);
             }}
-            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
               isPanningMode
                 ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-300'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
             title="Pan canvas (or hold Alt + drag)"
           >
-            <span className="sm:mr-1">✋</span> <span className="hidden sm:inline">Grab</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+              <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+              <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+            </svg>
+            <span className="hidden sm:inline">Grab</span>
           </button>
 
           <button
@@ -939,32 +959,50 @@ function App() {
               setIsColorPicking(!isColorPicking);
               setIsPanningMode(false);
             }}
-            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
               isColorPicking
                 ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
             title="Pick color from image"
           >
-            <span className="sm:mr-1">💧</span> <span className="hidden sm:inline">Eyedropper</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"></path>
+              <path d="m5 2 5 5"></path>
+              <path d="M2 13h15"></path>
+              <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"></path>
+            </svg>
+            <span className="hidden sm:inline">Eyedropper</span>
           </button>
 
           <button
             onClick={() => setShowColorPanel(!showColorPanel)}
-            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
               showColorPanel
                 ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <span className="sm:mr-1">🎯</span> <span className="hidden sm:inline">Colors</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
+            </svg>
+            <span className="hidden sm:inline">Colors</span>
           </button>
 
           <button
             onClick={clearBoard}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center gap-1.5"
           >
-            <span className="sm:mr-1">🗑️</span> <span className="hidden sm:inline">Clear</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            <span className="hidden sm:inline">Clear</span>
           </button>
         </div>
 
@@ -985,7 +1023,9 @@ function App() {
             className="text-xs text-gray-400 flex items-center gap-1 hidden sm:flex"
             title={`${(storageInfo.usage / 1024 / 1024).toFixed(2)} MB / ${(storageInfo.quota / 1024 / 1024).toFixed(0)} MB used`}
           >
-            <span>💾</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+            </svg>
             <span>{(storageInfo.usage / 1024 / 1024).toFixed(1)}MB</span>
           </div>
         )}
@@ -1134,45 +1174,60 @@ function App() {
 
                     {/* Layer controls toolbar */}
                     <div 
-                      className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-lg shadow-lg px-2 py-1 border border-gray-200"
+                      className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white rounded-lg shadow-lg px-1.5 py-1 border border-gray-200"
                       style={{ zIndex: 30 }}
                     >
                       <button
                         onClick={() => sendToBack(img.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
                         title="Send to back"
                       >
-                        ⏬
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="7 13 12 18 17 13"></polyline>
+                          <polyline points="7 6 12 11 17 6"></polyline>
+                        </svg>
                       </button>
                       <button
                         onClick={() => sendBackward(img.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
                         title="Send backward"
                       >
-                        ⬇️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19"></line>
+                          <polyline points="19 12 12 19 5 12"></polyline>
+                        </svg>
                       </button>
-                      <div className="w-px h-4 bg-gray-200" />
+                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
                       <button
                         onClick={() => bringForward(img.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
                         title="Bring forward"
                       >
-                        ⬆️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="19" x2="12" y2="5"></line>
+                          <polyline points="5 12 12 5 19 12"></polyline>
+                        </svg>
                       </button>
                       <button
                         onClick={() => bringToFront(img.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
                         title="Bring to front"
                       >
-                        ⏫
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="17 11 12 6 7 11"></polyline>
+                          <polyline points="17 18 12 13 7 18"></polyline>
+                        </svg>
                       </button>
-                      <div className="w-px h-4 bg-gray-200" />
+                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
                       <button
                         onClick={() => deleteImage(img.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-100 text-red-500 text-sm"
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 text-red-500 transition-colors"
                         title="Delete"
                       >
-                        🗑️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                       </button>
                     </div>
                   </>
@@ -1217,12 +1272,20 @@ function App() {
               onClick={() => setShowColorPanel(false)}
               className="lg:hidden absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 z-10"
             >
-              ✕
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
               
               <div className="p-4 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <span>🔮</span> Color Wheel
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="6"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                  </svg>
+                  Color Wheel
                 </h3>
               <div className="flex justify-center">
                 <ColorWheel
@@ -1302,7 +1365,12 @@ function App() {
 
             <div className="p-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <span>🎨</span> Current Color
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="9" cy="9" r="2"></circle>
+                  <circle cx="15" cy="15" r="2"></circle>
+                </svg>
+                Current Color
               </h3>
               <div className="flex items-center gap-3 mb-3">
                 <div
@@ -1350,7 +1418,14 @@ function App() {
             <div className="flex-1 overflow-y-auto p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <span>🎭</span> Palette ({pickedColors.length})
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="2"></rect>
+                    <rect x="6" y="6" width="4" height="4" rx="0.5"></rect>
+                    <rect x="14" y="6" width="4" height="4" rx="0.5"></rect>
+                    <rect x="6" y="14" width="4" height="4" rx="0.5"></rect>
+                    <rect x="14" y="14" width="4" height="4" rx="0.5"></rect>
+                  </svg>
+                  Palette ({pickedColors.length})
                 </h3>
                 {pickedColors.length > 0 && (
                   <button
@@ -1383,7 +1458,10 @@ function App() {
                         onClick={() => copyToClipboard(color.hex, 'HEX')}
                         className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full shadow text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        📋
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
                       </button>
                     </div>
                   ))}
