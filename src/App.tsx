@@ -790,17 +790,21 @@ function App() {
     // Finalize selection box if selecting
     if (isSelectingRef.current && selectionBoxRef.current) {
       const box = selectionBoxRef.current;
-      const minX = Math.min(box.startX, box.endX);
-      const maxX = Math.max(box.startX, box.endX);
-      const minY = Math.min(box.startY, box.endY);
-      const maxY = Math.max(box.startY, box.endY);
+      const selMinX = Math.min(box.startX, box.endX);
+      const selMaxX = Math.max(box.startX, box.endX);
+      const selMinY = Math.min(box.startY, box.endY);
+      const selMaxY = Math.max(box.startY, box.endY);
       
-      // Find images within selection box
+      // Find images that intersect with selection box (any overlap)
       const selectedIds = images.filter(img => {
-        const imgCenterX = img.x + img.width / 2;
-        const imgCenterY = img.y + img.height / 2;
-        return imgCenterX >= minX && imgCenterX <= maxX && 
-               imgCenterY >= minY && imgCenterY <= maxY;
+        const imgMinX = img.x;
+        const imgMaxX = img.x + img.width;
+        const imgMinY = img.y;
+        const imgMaxY = img.y + img.height;
+        
+        // Check if rectangles intersect
+        return !(imgMaxX < selMinX || imgMinX > selMaxX || 
+                 imgMaxY < selMinY || imgMinY > selMaxY);
       }).map(img => img.id);
       
       setSelectedImageIds(selectedIds);
@@ -1026,7 +1030,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.6</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.7</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1130,7 +1134,7 @@ function App() {
         )}
 
         <div className="text-xs text-gray-400 hidden lg:block">
-          Paste/Drop images • Drag to move • Corner handles to resize • Top handle to rotate • Alt+Drag to pan
+          Drag to select multiple • Ctrl+Click to add • Drag selected to move • Alt+Drag to pan
         </div>
       </div>
 
@@ -1379,12 +1383,13 @@ function App() {
           {/* Selection Box */}
           {selectionBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-500 bg-opacity-10 pointer-events-none"
+              className="absolute border-2 border-blue-500 bg-blue-400 bg-opacity-20 pointer-events-none rounded-sm"
               style={{
                 left: Math.min(selectionBox.startX, selectionBox.endX),
                 top: Math.min(selectionBox.startY, selectionBox.endY),
                 width: Math.abs(selectionBox.endX - selectionBox.startX),
                 height: Math.abs(selectionBox.endY - selectionBox.startY),
+                boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
               }}
             />
           )}
