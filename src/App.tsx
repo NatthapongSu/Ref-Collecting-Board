@@ -14,27 +14,66 @@ interface BoardImage {
 interface PickedColor {
   hex: string;
   rgb: { r: number; g: number; b: number };
-  hsl: { h: number; s: number; l: number };
   hsv: { h: number; s: number; v: number };
 }
 
 const STORAGE_KEY = 'art-board-data';
 
-// Color conversion functions
-function hslToHsv(h: number, s: number, l: number): { h: number; s: number; v: number } {
-  const sNorm = s / 100;
-  const lNorm = l / 100;
-  const v = lNorm + sNorm * Math.min(lNorm, 1 - lNorm);
-  const sHsv = v === 0 ? 0 : 2 * (1 - lNorm / v);
-  return { h, s: Math.round(sHsv * 100), v: Math.round(v * 100) };
+// HSV to RGB conversion
+function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
+  h = h % 360;
+  s /= 100;
+  v /= 100;
+  
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
+  
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255)
+  };
 }
 
-function hsvToHsl(h: number, s: number, v: number): { h: number; s: number; l: number } {
-  const sNorm = s / 100;
-  const vNorm = v / 100;
-  const l = vNorm * (1 - sNorm / 2);
-  const sHsl = (l === 0 || l === 1) ? 0 : (vNorm - l) / Math.min(l, 1 - l);
-  return { h, s: Math.round(sHsl * 100), l: Math.round(l * 100) };
+// RGB to HSV conversion
+function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  
+  let h = 0;
+  const s = max === 0 ? 0 : d / max;
+  const v = max;
+  
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    v: Math.round(v * 100)
+  };
+}
+
+// RGB to HEX conversion
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
 function App() {
@@ -45,11 +84,9 @@ function App() {
   const [currentColor, setCurrentColor] = useState<PickedColor>({
     hex: '#ff0000',
     rgb: { r: 255, g: 0, b: 0 },
-    hsl: { h: 0, s: 100, l: 50 },
     hsv: { h: 0, s: 100, v: 100 }
   });
-  const [colorMode, setColorMode] = useState<'hsl' | 'hsv'>('hsl');
-  const [hsl, setHsl] = useState({ h: 0, s: 100, l: 50 });
+  const [hsv, setHsv] = useState({ h: 0, s: 100, v: 100 });
   const [isColorPicking, setIsColorPicking] = useState(false);
   const [copiedText, setCopiedText] = useState('');
   const [boardOffset, setBoardOffset] = useState({ x: 0, y: 0 });
@@ -113,7 +150,7 @@ function App() {
       } catch (e) {
         console.error('Failed to save data:', e);
       }
-    }, 500); // Debounce for 500ms
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [images, pickedColors, boardOffset, zoom]);
@@ -194,7 +231,6 @@ function App() {
           return newZoom;
         });
       } else if (selectedImageId) {
-        // Scale selected image with scroll wheel
         e.preventDefault();
         const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
         setImages(prev => prev.map(img => {
@@ -202,7 +238,6 @@ function App() {
             const ratio = img.height / img.width;
             const newWidth = Math.max(50, Math.min(2000, img.width * scaleFactor));
             const newHeight = newWidth * ratio;
-            // Scale from center
             const dx = (newWidth - img.width) / 2;
             const dy = (newHeight - img.height) / 2;
             return { ...img, width: newWidth, height: newHeight, x: img.x - dx, y: img.y - dy };
@@ -411,12 +446,10 @@ function App() {
     const target = e.target as HTMLElement;
     const isImageElement = target.tagName === 'IMG' || target.closest('[data-image-id]');
     
-    // Unselect if clicking on empty space (not on an image or its handles)
     if (!isImageElement) {
       setSelectedImageId(null);
     }
     
-    // Start panning if middle mouse button or alt+left click
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setIsPanning(true);
       isPanningRef.current = true;
@@ -430,8 +463,6 @@ function App() {
     setImages(prev => prev.filter(img => img.id !== id));
     if (selectedImageId === id) setSelectedImageId(null);
   };
-
-
 
   // Color picking from image
   const handleColorPickClick = (e: React.MouseEvent<HTMLImageElement>, imgId: string) => {
@@ -456,12 +487,11 @@ function App() {
     const pixel = ctx.getImageData(px, py, 1, 1).data;
     const r = pixel[0], g = pixel[1], b = pixel[2];
     const hex = rgbToHex(r, g, b);
-    const hslVal = rgbToHsl(r, g, b);
-    const hsvVal = hslToHsv(hslVal.h, hslVal.s, hslVal.l);
+    const hsvVal = rgbToHsv(r, g, b);
 
-    const color: PickedColor = { hex, rgb: { r, g, b }, hsl: hslVal, hsv: hsvVal };
+    const color: PickedColor = { hex, rgb: { r, g, b }, hsv: hsvVal };
     setCurrentColor(color);
-    setHsl(hslVal);
+    setHsv(hsvVal);
     setIsColorPicking(false);
   };
 
@@ -472,17 +502,14 @@ function App() {
   };
 
   const copyToClipboard = (text: string, label: string) => {
-    // Try modern clipboard API first
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
         setCopiedText(label);
         setTimeout(() => setCopiedText(''), 1500);
       }).catch(() => {
-        // Fallback to execCommand
         fallbackCopy(text, label);
       });
     } else {
-      // Fallback for older browsers or restricted contexts
       fallbackCopy(text, label);
     }
   };
@@ -504,12 +531,11 @@ function App() {
     document.body.removeChild(textarea);
   };
 
-  const handleColorWheelChange = useCallback((h: number, s: number, l: number) => {
-    setHsl({ h, s, l });
-    const rgb = hslToRgb(h, s, l);
+  const handleColorWheelChange = useCallback((h: number, s: number, v: number) => {
+    setHsv({ h, s, v });
+    const rgb = hsvToRgb(h, s, v);
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-    const hsv = hslToHsv(h, s, l);
-    setCurrentColor({ hex, rgb, hsl: { h, s, l }, hsv });
+    setCurrentColor({ hex, rgb, hsv: { h, s, v } });
   }, []);
 
   const clearBoard = () => {
@@ -646,10 +672,8 @@ function App() {
                 {/* Selection border and handles */}
                 {selectedImageId === img.id && !isColorPicking && (
                   <>
-                    {/* Selection border */}
                     <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" style={{ zIndex: 10 }} />
                     
-                    {/* Rotation handle */}
                     <div
                       className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
                       style={{ zIndex: 20 }}
@@ -657,7 +681,6 @@ function App() {
                     />
                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-blue-400 pointer-events-none" style={{ zIndex: 15 }} />
                     
-                    {/* Resize handles */}
                     <div
                       className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
                       style={{ zIndex: 20 }}
@@ -684,7 +707,6 @@ function App() {
             ))}
           </div>
 
-          {/* Empty state */}
           {images.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-gray-400">
@@ -695,14 +717,12 @@ function App() {
             </div>
           )}
 
-          {/* Color picking indicator */}
           {isColorPicking && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
               Click on an image to pick a color
             </div>
           )}
 
-          {/* Copied indicator */}
           {copiedText && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium">
               ✓ {copiedText} copied!
@@ -713,40 +733,30 @@ function App() {
         {/* Color Panel */}
         {showColorPanel && (
           <div className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-sm">
-            {/* Color Wheel Section */}
             <div className="p-4 border-b border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <span>🔮</span> Color Wheel
-                </h3>
-                <button
-                  onClick={() => setColorMode(colorMode === 'hsl' ? 'hsv' : 'hsl')}
-                  className="px-2 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                >
-                  {colorMode === 'hsl' ? 'HSL' : 'HSV'}
-                </button>
-              </div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <span>🔮</span> Color Wheel
+              </h3>
               <div className="flex justify-center">
                 <ColorWheel
-                  hue={hsl.h}
-                  saturation={hsl.s}
-                  lightness={hsl.l}
+                  hue={hsv.h}
+                  saturation={hsv.s}
+                  value={hsv.v}
                   onChange={handleColorWheelChange}
                   size={220}
-                  mode={colorMode}
                 />
               </div>
               
-              {/* HSL/HSV Sliders */}
+              {/* HSV Sliders */}
               <div className="mt-4 space-y-3">
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Hue ({hsl.h}°)</label>
+                  <label className="text-xs text-gray-600 mb-1 block">Hue ({hsv.h}°)</label>
                   <input
                     type="range"
                     min="0"
                     max="360"
-                    value={hsl.h}
-                    onChange={(e) => handleColorWheelChange(Number(e.target.value), hsl.s, hsl.l)}
+                    value={hsv.h}
+                    onChange={(e) => handleColorWheelChange(Number(e.target.value), hsv.s, hsv.v)}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
@@ -762,63 +772,42 @@ function App() {
                 </div>
                 
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">
-                    {colorMode === 'hsl' ? `Saturation (${hsl.s}%)` : `Saturation (${currentColor.hsv.s}%)`}
-                  </label>
+                  <label className="text-xs text-gray-600 mb-1 block">Saturation ({hsv.s}%)</label>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={colorMode === 'hsl' ? hsl.s : currentColor.hsv.s}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (colorMode === 'hsl') {
-                        handleColorWheelChange(hsl.h, val, hsl.l);
-                      } else {
-                        const newHsl = hsvToHsl(hsl.h, val, currentColor.hsv.v);
-                        handleColorWheelChange(newHsl.h, newHsl.s, newHsl.l);
-                      }
-                    }}
+                    value={hsv.s}
+                    onChange={(e) => handleColorWheelChange(hsv.h, Number(e.target.value), hsv.v)}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
-                        hsl(${hsl.h}, 0%, ${hsl.l}%), 
-                        hsl(${hsl.h}, 100%, ${hsl.l}%))`
+                        hsl(${hsv.h}, 0%, ${hsv.v}%), 
+                        hsl(${hsv.h}, 100%, ${hsv.v}%))`
                     }}
                   />
                 </div>
                 
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">
-                    {colorMode === 'hsl' ? `Lightness (${hsl.l}%)` : `Value (${currentColor.hsv.v}%)`}
-                  </label>
+                  <label className="text-xs text-gray-600 mb-1 block">Value ({hsv.v}%)</label>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={colorMode === 'hsl' ? hsl.l : currentColor.hsv.v}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (colorMode === 'hsl') {
-                        handleColorWheelChange(hsl.h, hsl.s, val);
-                      } else {
-                        const newHsl = hsvToHsl(hsl.h, currentColor.hsv.s, val);
-                        handleColorWheelChange(newHsl.h, newHsl.s, newHsl.l);
-                      }
-                    }}
+                    value={hsv.v}
+                    onChange={(e) => handleColorWheelChange(hsv.h, hsv.s, Number(e.target.value))}
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{
                       background: `linear-gradient(to right, 
-                        hsl(${hsl.h}, ${hsl.s}%, 0%), 
-                        hsl(${hsl.h}, ${hsl.s}%, 50%), 
-                        hsl(${hsl.h}, ${hsl.s}%, 100%))`
+                        hsl(${hsv.h}, ${hsv.s}%, 0%), 
+                        hsl(${hsv.h}, ${hsv.s}%, ${hsv.v / 2}%), 
+                        hsl(${hsv.h}, ${hsv.s}%, ${hsv.v}%))`
                     }}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Current Color Display */}
             <div className="p-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <span>🎨</span> Current Color
@@ -848,21 +837,12 @@ function App() {
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{colorMode === 'hsl' ? 'HSL' : 'HSV'}</span>
+                    <span className="text-xs text-gray-500">HSV</span>
                     <button
-                      onClick={() => {
-                        if (colorMode === 'hsl') {
-                          copyToClipboard(`hsl(${currentColor.hsl.h}, ${currentColor.hsl.s}%, ${currentColor.hsl.l}%)`, 'HSL');
-                        } else {
-                          copyToClipboard(`hsv(${currentColor.hsv.h}, ${currentColor.hsv.s}%, ${currentColor.hsv.v}%)`, 'HSV');
-                        }
-                      }}
+                      onClick={() => copyToClipboard(`hsv(${currentColor.hsv.h}, ${currentColor.hsv.s}%, ${currentColor.hsv.v}%)`, 'HSV')}
                       className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200 transition-colors"
                     >
-                      {colorMode === 'hsl' 
-                        ? `${currentColor.hsl.h}°, ${currentColor.hsl.s}%, ${currentColor.hsl.l}%`
-                        : `${currentColor.hsv.h}°, ${currentColor.hsv.s}%, ${currentColor.hsv.v}%`
-                      }
+                      {currentColor.hsv.h}°, {currentColor.hsv.s}%, {currentColor.hsv.v}%
                     </button>
                   </div>
                 </div>
@@ -875,7 +855,6 @@ function App() {
               </button>
             </div>
 
-            {/* Saved Colors */}
             <div className="flex-1 overflow-y-auto p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -902,11 +881,11 @@ function App() {
                       <button
                         onClick={() => {
                           setCurrentColor(color);
-                          setHsl(color.hsl);
+                          setHsv(color.hsv);
                         }}
                         className="w-full aspect-square rounded-lg shadow-sm border border-gray-200 hover:scale-110 transition-transform"
                         style={{ backgroundColor: color.hex }}
-                        title={`${color.hex}\nRGB: ${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b}`}
+                        title={`${color.hex}\nRGB: ${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b}\nHSV: ${color.hsv.h}°, ${color.hsv.s}%, ${color.hsv.v}%`}
                       />
                       <button
                         onClick={() => copyToClipboard(color.hex, 'HEX')}
@@ -924,63 +903,6 @@ function App() {
       </div>
     </div>
   );
-}
-
-// Utility functions
-function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-}
-
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
-    }
-  }
-
-  return {
-    h: Math.round(h * 360),
-    s: Math.round(s * 100),
-    l: Math.round(l * 100)
-  };
-}
-
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  h /= 360; s /= 100; l /= 100;
-  let r, g, b;
-
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1/3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
-  }
-
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255)
-  };
 }
 
 export default App;
