@@ -53,14 +53,14 @@ const ColorWheel: React.FC<ColorWheelProps> = ({ hue, saturation, lightness, onC
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
     // White gradient (left to right for saturation)
-    const gradWhite = ctx.createLinearGradient(squareLeft, 0, squareLeft + squareSize, 0);
+    const gradWhite = ctx.createLinearGradient(squareLeft, squareTop, squareLeft + squareSize, squareTop);
     gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
     gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradWhite;
     ctx.fillRect(squareLeft, squareTop, squareSize, squareSize);
 
     // Black gradient (top to bottom for lightness)
-    const gradBlack = ctx.createLinearGradient(0, squareTop, 0, squareTop + squareSize);
+    const gradBlack = ctx.createLinearGradient(squareLeft, squareTop, squareLeft, squareTop + squareSize);
     gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
     gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
     ctx.fillStyle = gradBlack;
