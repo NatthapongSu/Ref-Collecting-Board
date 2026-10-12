@@ -656,7 +656,7 @@ function App() {
 
         {/* Color Panel */}
         {showColorPanel && (
-          <div className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-sm">
+          <div className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-sm">
             {/* Color Wheel Section */}
             <div className="p-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -668,7 +668,7 @@ function App() {
                   saturation={hsl.s}
                   lightness={hsl.l}
                   onChange={handleColorWheelChange}
-                  size={220}
+                  size={240}
                 />
               </div>
             </div>
