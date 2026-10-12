@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ColorWheel from './components/ColorWheel';
+import { saveData, loadData, migrateFromLocalStorage, getStorageEstimate } from './lib/db';
 
 interface BoardImage {
   id: string;
@@ -17,7 +18,7 @@ interface PickedColor {
   hsv: { h: number; s: number; v: number };
 }
 
-const STORAGE_KEY = 'art-board-data';
+const STORAGE_KEY = 'board-data';
 
 // HSV to RGB conversion
 function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
@@ -100,6 +101,8 @@ function App() {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, imgX: 0, imgY: 0 });
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [rotateStart, setRotateStart] = useState({ angle: 0, centerX: 0, centerY: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [storageInfo, setStorageInfo] = useState<{ usage: number; quota: number } | null>(null);
 
   const boardRef = useRef<HTMLDivElement>(null);
   const boardOffsetRef = useRef({ x: 0, y: 0 });
@@ -114,46 +117,67 @@ function App() {
   const rotatingIdRef = useRef<string | null>(null);
   const rotateStartRef = useRef({ angle: 0, centerX: 0, centerY: 0 });
 
-  // Load from localStorage
+  // Load from IndexedDB (with localStorage migration)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.images) setImages(data.images);
-        if (data.pickedColors) setPickedColors(data.pickedColors);
-        if (data.boardOffset) {
-          setBoardOffset(data.boardOffset);
-          boardOffsetRef.current = data.boardOffset;
+    const loadInitialData = async () => {
+      try {
+        // Try to migrate from localStorage first (one-time)
+        const migrated = await migrateFromLocalStorage();
+        if (migrated) {
+          console.log('Migrated data from localStorage to IndexedDB');
         }
-        if (data.zoom) {
-          setZoom(data.zoom);
-          zoomRef.current = data.zoom;
+
+        // Load from IndexedDB
+        const data = await loadData<any>(STORAGE_KEY);
+        if (data) {
+          if (data.images) setImages(data.images);
+          if (data.pickedColors) setPickedColors(data.pickedColors);
+          if (data.boardOffset) {
+            setBoardOffset(data.boardOffset);
+            boardOffsetRef.current = data.boardOffset;
+          }
+          if (data.zoom) {
+            setZoom(data.zoom);
+            zoomRef.current = data.zoom;
+          }
         }
+      } catch (e) {
+        console.error('Failed to load saved data:', e);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Failed to load saved data:', e);
-    }
+    };
+
+    loadInitialData();
   }, []);
 
-  // Auto-save to localStorage (debounced)
+  // Auto-save to IndexedDB (debounced)
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const saveData = {
+    if (isLoading) return; // Don't save during initial load
+
+    const timeoutId = setTimeout(async () => {
+      const dataToSave = {
         images,
         pickedColors,
         boardOffset,
         zoom
       };
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+        await saveData(STORAGE_KEY, dataToSave);
+        // Update storage info after save
+        const estimate = await getStorageEstimate();
+        setStorageInfo(estimate);
       } catch (e) {
         console.error('Failed to save data:', e);
+        // If quota exceeded, try clearing old data
+        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+          alert('Storage quota exceeded. Please remove some images to free up space.');
+        }
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [images, pickedColors, boardOffset, zoom]);
+  }, [images, pickedColors, boardOffset, zoom, isLoading]);
 
   // Handle paste
   useEffect(() => {
@@ -251,9 +275,43 @@ function App() {
     return () => board.removeEventListener('wheel', handleWheel);
   }, [selectedImageId]);
 
-  const addImage = (src: string, x?: number, y?: number) => {
+  // Compress image to save storage
+  const compressImage = (src: string, maxWidth = 800, quality = 0.8): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          const ratio = maxWidth / width;
+          width = maxWidth;
+          height = height * ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        // Use JPEG for better compression (except for images with transparency)
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    });
+  };
+
+  const addImage = async (src: string, x?: number, y?: number) => {
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
+      // Display dimensions (smaller for canvas)
       const maxDim = 400;
       let width = img.width;
       let height = img.height;
@@ -262,9 +320,13 @@ function App() {
         width *= ratio;
         height *= ratio;
       }
+      
+      // Compress the source for storage (larger but still compressed)
+      const compressedSrc = await compressImage(src, 800, 0.8);
+      
       const newImage: BoardImage = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        src,
+        src: compressedSrc,
         x: x ?? (Math.random() * 200 + 100),
         y: y ?? (Math.random() * 200 + 100),
         width,
@@ -548,6 +610,19 @@ function App() {
     setPickedColors([]);
   };
 
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-pulse">🎨</div>
+          <p className="text-lg font-medium text-gray-700">Loading Art Board...</p>
+          <p className="text-sm text-gray-500 mt-1">Restoring your workspace</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Top Toolbar */}
@@ -596,6 +671,16 @@ function App() {
             Reset
           </button>
         </div>
+
+        {storageInfo && (
+          <div 
+            className="text-xs text-gray-400 flex items-center gap-1"
+            title={`${(storageInfo.usage / 1024 / 1024).toFixed(2)} MB / ${(storageInfo.quota / 1024 / 1024).toFixed(0)} MB used`}
+          >
+            <span>💾</span>
+            <span>{(storageInfo.usage / 1024 / 1024).toFixed(1)}MB</span>
+          </div>
+        )}
 
         <div className="text-xs text-gray-400">
           Paste/Drop images • Drag to move • Corner handles to resize • Top handle to rotate • Alt+Drag to pan
