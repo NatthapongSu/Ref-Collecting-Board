@@ -1243,6 +1243,40 @@ function App() {
     }
   };
 
+  const clearAllData = async () => {
+    if (confirm('This will delete ALL data including canvases, colors, and settings. Continue?')) {
+      try {
+        // Clear all canvases and reset to default
+        const defaultCanvas: Canvas = {
+          id: Date.now().toString(),
+          name: 'Canvas 1',
+          images: [],
+          pickedColors: [],
+          boardOffset: { x: 0, y: 0 },
+          zoom: 1
+        };
+        setCanvases([defaultCanvas]);
+        setActiveCanvasId(defaultCanvas.id);
+        activeCanvasIdRef.current = defaultCanvas.id;
+        
+        // Force save to IndexedDB
+        await saveData(STORAGE_KEY, {
+          canvases: [defaultCanvas],
+          activeCanvasId: defaultCanvas.id
+        });
+        
+        // Update storage info
+        const estimate = await getStorageEstimate();
+        setStorageInfo(estimate);
+        
+        alert('All data cleared successfully!');
+      } catch (e) {
+        console.error('Failed to clear data:', e);
+        alert('Failed to clear data. Please try again.');
+      }
+    }
+  };
+
   const clearColors = () => {
     setPickedColors([]);
   };
@@ -1281,7 +1315,7 @@ function App() {
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2Z"></path>
           </svg>
           <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Art Board</h1>
-          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.3</span>
+          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">v0.9.4</span>
         </div>
 
         <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
@@ -1350,6 +1384,7 @@ function App() {
           <button
             onClick={clearBoard}
             className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all flex items-center gap-1.5"
+            title="Clear all images from current canvas"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6h18"></path>
@@ -1357,6 +1392,19 @@ function App() {
               <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
             </svg>
             <span className="hidden sm:inline">Clear</span>
+          </button>
+          
+          <button
+            onClick={clearAllData}
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-all flex items-center gap-1.5"
+            title="Delete ALL data (canvases, colors, settings)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            <span className="hidden sm:inline">Reset All</span>
           </button>
         </div>
 
