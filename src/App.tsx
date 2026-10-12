@@ -345,6 +345,11 @@ function App() {
   };
 
   const handleImageMouseDown = (e: React.MouseEvent, id: string) => {
+    // If in grab mode or alt is held, don't interact with image - let it pan
+    if (isPanningModeRef.current || e.altKey) {
+      return; // Let event bubble to board handler
+    }
+    
     if (isColorPicking) return;
     e.stopPropagation();
     e.preventDefault();
@@ -513,12 +518,16 @@ function App() {
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const isImageElement = target.tagName === 'IMG' || target.closest('[data-image-id]');
+    const isGrabMode = e.altKey || isPanningModeRef.current;
     
-    if (!isImageElement) {
+    // Only deselect if not in grab mode and not clicking on an image
+    if (!isImageElement && !isGrabMode) {
       setSelectedImageId(null);
     }
     
-    if (e.button === 1 || (e.button === 0 && (e.altKey || isPanningModeRef.current))) {
+    // Start panning if middle mouse button, alt key, or grab mode is active
+    if (e.button === 1 || (e.button === 0 && isGrabMode)) {
+      e.preventDefault();
       setIsPanning(true);
       isPanningRef.current = true;
       const start = { x: e.clientX, y: e.clientY };
@@ -761,7 +770,8 @@ function App() {
                   className="w-full h-full rounded-lg shadow-lg select-none"
                   style={{
                     filter: isColorPicking ? 'brightness(1.05)' : 'none',
-                    cursor: isColorPicking ? 'crosshair' : 'move'
+                    cursor: isPanningMode ? (isPanning ? 'grabbing' : 'grab') : isColorPicking ? 'crosshair' : 'move',
+                    pointerEvents: isPanningMode ? 'none' : 'auto'
                   }}
                   onMouseDown={(e) => {
                     if (isColorPicking) {
@@ -771,7 +781,7 @@ function App() {
                     }
                   }}
                   onClick={(e) => {
-                    if (!isColorPicking) {
+                    if (!isColorPicking && !isPanningMode) {
                       e.stopPropagation();
                       setSelectedImageId(img.id);
                     }
