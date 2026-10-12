@@ -38,6 +38,11 @@ function App() {
   const [zoom, setZoom] = useState(1);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [showColorPanel, setShowColorPanel] = useState(true);
+  const [resizingId, setResizingId] = useState<string | null>(null);
+  const [resizeCorner, setResizeCorner] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, imgX: 0, imgY: 0 });
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [rotateStart, setRotateStart] = useState({ angle: 0, centerX: 0, centerY: 0 });
 
   const boardRef = useRef<HTMLDivElement>(null);
   const boardOffsetRef = useRef({ x: 0, y: 0 });
@@ -46,6 +51,11 @@ function App() {
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
+  const resizingIdRef = useRef<string | null>(null);
+  const resizeCornerRef = useRef<'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0, imgX: 0, imgY: 0 });
+  const rotatingIdRef = useRef<string | null>(null);
+  const rotateStartRef = useRef({ angle: 0, centerX: 0, centerY: 0 });
 
   // Load from localStorage
   useEffect(() => {
@@ -149,7 +159,7 @@ function App() {
     };
   }, []);
 
-  // Handle wheel zoom
+  // Handle wheel zoom / image scale
   useEffect(() => {
     const board = boardRef.current;
     if (!board) return;
@@ -163,12 +173,28 @@ function App() {
           zoomRef.current = newZoom;
           return newZoom;
         });
+      } else if (selectedImageId) {
+        // Scale selected image with scroll wheel
+        e.preventDefault();
+        const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
+        setImages(prev => prev.map(img => {
+          if (img.id === selectedImageId) {
+            const ratio = img.height / img.width;
+            const newWidth = Math.max(50, Math.min(2000, img.width * scaleFactor));
+            const newHeight = newWidth * ratio;
+            // Scale from center
+            const dx = (newWidth - img.width) / 2;
+            const dy = (newHeight - img.height) / 2;
+            return { ...img, width: newWidth, height: newHeight, x: img.x - dx, y: img.y - dy };
+          }
+          return img;
+        }));
       }
     };
 
     board.addEventListener('wheel', handleWheel, { passive: false });
     return () => board.removeEventListener('wheel', handleWheel);
-  }, []);
+  }, [selectedImageId]);
 
   const addImage = (src: string, x?: number, y?: number) => {
     const img = new Image();
@@ -214,11 +240,118 @@ function App() {
     }
   };
 
+  const handleResizeMouseDown = (e: React.MouseEvent, id: string, corner: 'tl' | 'tr' | 'bl' | 'br') => {
+    e.stopPropagation();
+    const img = images.find(i => i.id === id);
+    if (!img) return;
+    
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (rect) {
+      const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+      const mouseY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+      
+      const startData = {
+        x: mouseX,
+        y: mouseY,
+        width: img.width,
+        height: img.height,
+        imgX: img.x,
+        imgY: img.y
+      };
+      
+      setResizingId(id);
+      resizingIdRef.current = id;
+      setResizeCorner(corner);
+      resizeCornerRef.current = corner;
+      setResizeStart(startData);
+      resizeStartRef.current = startData;
+      setSelectedImageId(id);
+    }
+  };
+
+  const handleRotateMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const img = images.find(i => i.id === id);
+    if (!img) return;
+    
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (rect) {
+      const centerX = img.x + img.width / 2;
+      const centerY = img.y + img.height / 2;
+      
+      const startData = {
+        angle: img.rotation,
+        centerX,
+        centerY
+      };
+      
+      setRotatingId(id);
+      rotatingIdRef.current = id;
+      setRotateStart(startData);
+      rotateStartRef.current = startData;
+      setSelectedImageId(id);
+    }
+  };
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const currentDraggingId = draggingIdRef.current;
     const currentIsPanning = isPanningRef.current;
+    const currentResizingId = resizingIdRef.current;
+    const currentRotatingId = rotatingIdRef.current;
 
-    if (currentDraggingId) {
+    if (currentResizingId) {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (rect) {
+        const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const mouseY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        const dx = mouseX - resizeStartRef.current.x;
+        const dy = mouseY - resizeStartRef.current.y;
+        
+        let newWidth = resizeStartRef.current.width;
+        let newHeight = resizeStartRef.current.height;
+        let newX = resizeStartRef.current.imgX;
+        let newY = resizeStartRef.current.imgY;
+        
+        const aspectRatio = resizeStartRef.current.height / resizeStartRef.current.width;
+        const corner = resizeCornerRef.current;
+        
+        if (corner === 'br') {
+          newWidth = Math.max(50, resizeStartRef.current.width + dx);
+          newHeight = newWidth * aspectRatio;
+        } else if (corner === 'bl') {
+          newWidth = Math.max(50, resizeStartRef.current.width - dx);
+          newHeight = newWidth * aspectRatio;
+          newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
+        } else if (corner === 'tr') {
+          newWidth = Math.max(50, resizeStartRef.current.width + dx);
+          newHeight = newWidth * aspectRatio;
+          newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
+        } else if (corner === 'tl') {
+          newWidth = Math.max(50, resizeStartRef.current.width - dx);
+          newHeight = newWidth * aspectRatio;
+          newX = resizeStartRef.current.imgX + (resizeStartRef.current.width - newWidth);
+          newY = resizeStartRef.current.imgY + (resizeStartRef.current.height - newHeight);
+        }
+        
+        setImages(prev => prev.map(img =>
+          img.id === currentResizingId ? { ...img, width: newWidth, height: newHeight, x: newX, y: newY } : img
+        ));
+      }
+    } else if (currentRotatingId) {
+      const rect = boardRef.current?.getBoundingClientRect();
+      if (rect) {
+        const mouseX = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current;
+        const mouseY = (e.clientY - rect.top - boardOffsetRef.current.y) / zoomRef.current;
+        const centerX = rotateStartRef.current.centerX;
+        const centerY = rotateStartRef.current.centerY;
+        
+        const angle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI) + 90;
+        
+        setImages(prev => prev.map(img =>
+          img.id === currentRotatingId ? { ...img, rotation: angle } : img
+        ));
+      }
+    } else if (currentDraggingId) {
       const rect = boardRef.current?.getBoundingClientRect();
       if (rect) {
         const x = (e.clientX - rect.left - boardOffsetRef.current.x) / zoomRef.current - dragOffsetRef.current.x;
@@ -243,6 +376,12 @@ function App() {
     draggingIdRef.current = null;
     setIsPanning(false);
     isPanningRef.current = false;
+    setResizingId(null);
+    resizingIdRef.current = null;
+    setResizeCorner(null);
+    resizeCornerRef.current = null;
+    setRotatingId(null);
+    rotatingIdRef.current = null;
   }, []);
 
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
@@ -263,22 +402,7 @@ function App() {
     if (selectedImageId === id) setSelectedImageId(null);
   };
 
-  const resizeImage = (id: string, delta: number) => {
-    setImages(prev => prev.map(img => {
-      if (img.id === id) {
-        const ratio = img.height / img.width;
-        const newWidth = Math.max(50, img.width + delta);
-        return { ...img, width: newWidth, height: newWidth * ratio };
-      }
-      return img;
-    }));
-  };
 
-  const rotateImage = (id: string, delta: number) => {
-    setImages(prev => prev.map(img =>
-      img.id === id ? { ...img, rotation: img.rotation + delta } : img
-    ));
-  };
 
   // Color picking from image
   const handleColorPickClick = (e: React.MouseEvent<HTMLImageElement>, imgId: string) => {
@@ -390,7 +514,7 @@ function App() {
         </div>
 
         <div className="text-xs text-gray-400">
-          Paste (Ctrl+V) or Drop images • Alt+Drag to pan • Ctrl+Scroll to zoom
+          Paste/Drop images • Drag to move • Corner handles to resize • Top handle to rotate • Alt+Drag to pan
         </div>
       </div>
 
@@ -431,7 +555,8 @@ function App() {
                   top: img.y,
                   width: img.width,
                   transform: `rotate(${img.rotation}deg)`,
-                  zIndex: draggingId === img.id ? 1000 : selectedImageId === img.id ? 500 : 1
+                  transformOrigin: 'center center',
+                  zIndex: draggingId === img.id || resizingId === img.id || rotatingId === img.id ? 1000 : selectedImageId === img.id ? 500 : 1
                 }}
               >
                 <img
@@ -446,42 +571,37 @@ function App() {
                   draggable={false}
                 />
 
-                {/* Controls overlay */}
+                {/* Selection border and handles */}
                 {selectedImageId === img.id && !isColorPicking && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-lg shadow-lg px-2 py-1 border border-gray-200">
-                    <button
-                      onClick={() => resizeImage(img.id, 30)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-sm"
-                      title="Enlarge"
-                    >+</button>
-                    <button
-                      onClick={() => resizeImage(img.id, -30)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-sm"
-                      title="Shrink"
-                    >−</button>
-                    <div className="w-px h-4 bg-gray-200" />
-                    <button
-                      onClick={() => rotateImage(img.id, -15)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
-                      title="Rotate left"
-                    >↺</button>
-                    <button
-                      onClick={() => rotateImage(img.id, 15)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-xs"
-                      title="Rotate right"
-                    >↻</button>
-                    <div className="w-px h-4 bg-gray-200" />
-                    <button
-                      onClick={() => deleteImage(img.id)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-100 text-red-500 text-sm"
-                      title="Delete"
-                    >×</button>
-                  </div>
-                )}
-
-                {/* Selection border */}
-                {selectedImageId === img.id && (
-                  <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" />
+                  <>
+                    {/* Selection border */}
+                    <div className="absolute inset-0 rounded-lg ring-2 ring-blue-400 pointer-events-none" />
+                    
+                    {/* Rotation handle */}
+                    <div
+                      className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full cursor-grab active:cursor-grabbing shadow-sm hover:scale-110 transition-transform"
+                      onMouseDown={(e) => handleRotateMouseDown(e, img.id)}
+                    />
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-blue-400 pointer-events-none" />
+                    
+                    {/* Resize handles */}
+                    <div
+                      className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                      onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tl')}
+                    />
+                    <div
+                      className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                      onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'tr')}
+                    />
+                    <div
+                      className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nesw-resize hover:scale-125 transition-transform"
+                      onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'bl')}
+                    />
+                    <div
+                      className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nwse-resize hover:scale-125 transition-transform"
+                      onMouseDown={(e) => handleResizeMouseDown(e, img.id, 'br')}
+                    />
+                  </>
                 )}
               </div>
             ))}
